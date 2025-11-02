@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { authClient } from "../../../../lib/auth-client";
@@ -19,7 +18,6 @@ const FormSchema = z.object({
 
 export function LoginForm() {
   const router = useRouter();
-  const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -30,23 +28,32 @@ export function LoginForm() {
   });
 
   const onSubmit = async (data: z.infer<typeof FormSchema>) => {
-    toast("Carregando...");
-    setServerError(null);
+
     console.log(data);
-    const { error } = await authClient.signIn.email(
+    await authClient.signIn.email(
       {
         email: data.email,
         password: data.password,
         callbackURL: "/dashboard",
 
+
       },
       {
-        onError: (ctx) => setServerError(ctx.error.message),
+        onSuccess: () => {
+          
+
+          toast.success("Logado com sucesso!"),
+            router.push("/dashboard");
+        },
+        onError: (ctx) => {
+
+
+          toast.error(ctx.error.message);
+        }
+
       }
+
     );
-
-    if (!error) router.push("/dashboard");
-
   };
 
   return (
@@ -84,11 +91,6 @@ export function LoginForm() {
             </FormItem>
           )}
         />
-        {serverError && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {serverError}
-          </div>
-        )}
         <Button className="w-full" type="submit">
           Login
         </Button>

@@ -8,8 +8,6 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-
-import * as React from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "../../../../lib/auth-client";
 
@@ -26,10 +24,12 @@ const FormSchema = z
   });
 
 
+
+
 export function RegisterForm() {
 
   const router = useRouter();
-  const [serverError, setServerError] = React.useState<string | null>(null);
+
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -42,11 +42,7 @@ export function RegisterForm() {
   });
 
   const onSubmit = async (data: z.infer<typeof FormSchema>) => {
-
-    toast("Carregando...");
-    setServerError(null);
-
-    const { error } = await authClient.signUp.email(
+    await authClient.signUp.email(
       {
         name: data.name,
         email: data.email,
@@ -54,11 +50,17 @@ export function RegisterForm() {
         callbackURL: "/dashboard",
       },
       {
-        onSuccess: () => router.push("/dashboard"),
-        onError: (ctx) => setServerError(ctx.error.message),
+        onSuccess: () => {
+          toast.success("Usuário registrado com sucesso!"),
+            router.push("/dashboard");
+        },
+        onError: (ctx) => {
+
+
+          toast.error(ctx.error.message);
+        }
       }
     );
-    if (!error) router.push("/dashboard");
   };
 
   return (
@@ -122,11 +124,7 @@ export function RegisterForm() {
             </FormItem>
           )}
         />
-        {serverError && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {serverError}
-          </div>
-        )}
+
         <Button className="w-full" type="submit">
           Register
         </Button>
