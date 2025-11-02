@@ -35,7 +35,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
       email: session.user.email,
       id: session.user.id,
       avatar: session.user.image as string || `https://ui-avatars.com/api/?background=black&color=fffff&name=${session.user.name}&size=128`,
-      role: session.user.roles[0]?.name || "Usuário",
+      role: session.user.roles[0]?.name || "",
     }
   ]
   const cookieStore = await cookies();
