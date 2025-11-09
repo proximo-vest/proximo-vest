@@ -30,31 +30,46 @@ export function LoginForm() {
   const onSubmit = async (data: z.infer<typeof FormSchema>) => {
 
     console.log(data);
-    await authClient.signIn.email(
+    const res = await authClient.signIn.email(
       {
         email: data.email,
         password: data.password,
         callbackURL: "/dashboard",
 
 
-      },
-      {
-        onSuccess: () => {
-          
+      })
 
-          toast.success("Logado com sucesso!"),
-            router.push("/dashboard");
-        },
-        onError: (ctx) => {
+    if (res?.error) {
+      // trate mensagens conforme seu UI/toast
+      // ex.: InvalidCredentials, RateLimited, etc.
+      toast.error(`${res.error.message}`);
+      return;
+    }
 
+    // 2) checa perfil/sessão logo depois
+    const me = await fetch("/api/auth/me", { cache: "no-store" }).then(r => r.json());
 
-          toast.error(ctx.error.message);
-        }
+    // 3) redireciona conforme status
+    if (me?.error === "Unauthorized") {
+      alert("Falha ao criar sessão.");
+      return;
+    }
+    if (!me.emailVerified) {
+      router.replace("/verify-email");
+      return;
+    }
+    if (me.status === "suspended") {
+      router.replace("/suspended");
+      return;
+    }
+    if (me.status === "deleted") {
+      router.replace("/deleted");
+      return;
+    }
 
-      }
-
-    );
-  };
+    // ok
+    router.replace("/dashboard");
+  }
 
   return (
     <Form {...form}>

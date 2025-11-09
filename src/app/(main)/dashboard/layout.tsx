@@ -1,14 +1,11 @@
 import { ReactNode } from "react";
-
 import { cookies } from "next/headers";
-
 import { AppSidebar } from "@/app/(main)/dashboard/_components/sidebar/app-sidebar";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { users } from "@/data/users";
 import { cn } from "@/lib/utils";
 import { getPreference } from "@/server/server-actions";
-import { requireAuth } from "../../../utils/auth-guard"
+import { requirePageAuth } from "@/utils/access";
 
 import {
   SIDEBAR_VARIANT_VALUES,
@@ -25,17 +22,20 @@ import { AccountSwitcher } from "./_components/sidebar/account-switcher";
 import { LayoutControls } from "./_components/sidebar/layout-controls";
 import { SearchDialog } from "./_components/sidebar/search-dialog";
 import { ThemeSwitcher } from "./_components/sidebar/theme-switcher";
-import { id } from "date-fns/locale";
 
 export default async function Layout({ children }: Readonly<{ children: ReactNode }>) {
-  const session = await requireAuth()
+   const { session, profile} = await requirePageAuth({
+    emailVerified: true,
+    blockSuspended: true,
+    blockDeleted: true,
+  });
   const user = [
     {
       name: session.user.name,
       email: session.user.email,
       id: session.user.id,
       avatar: session.user.image as string || `https://ui-avatars.com/api/?background=black&color=fffff&name=${session.user.name}&size=128`,
-      role: session.user.roles[0]?.name || "",
+      role: profile.roles[0] || "",
     }
   ]
   const cookieStore = await cookies();

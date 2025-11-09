@@ -31,8 +31,10 @@ export function AccountSwitcher({
   const router = useRouter()
 
   const handleLogout = async () => {
-    await authClient.signOut()
-    router.push("/auth/login") // ou onde quiser
+    await fetch("/api/auth/logout", { method: "POST" });
+    // opcional: informar outras abas
+    try { new BroadcastChannel("auth").postMessage("logout"); } catch { }
+    router.replace("/auth/login");
   }
 
   return (

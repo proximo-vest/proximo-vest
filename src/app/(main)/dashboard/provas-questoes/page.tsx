@@ -1,9 +1,16 @@
 import { DataTable } from "./_components/data-table";
 import { SectionCards } from "./_components/section-cards";
-import { requireAuthWithRole } from "../../../../utils/auth-guard";
+import { requirePageAuth } from "@/utils/access";
+
 type Board = { id: number; name: string; slug: string };
 export default async function Provas() {
-  await requireAuthWithRole("Admin");
+  await requirePageAuth({
+    role: "Admin",          // OU perm: "exam.read"
+    emailVerified: true,
+    blockSuspended: true,
+    blockDeleted: true,
+    onForbiddenRedirect: "/dashboard", // opcional
+  });
   const res = await fetch(`${process.env.API_URL}/exam-board/list`, {
   });
 
