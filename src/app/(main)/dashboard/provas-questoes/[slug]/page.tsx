@@ -1,8 +1,7 @@
-import { requireAuthWithRole } from "../../../../../utils/auth-guard";
 import { BoardViewClient } from './_components/board-view-client'
 import { DataTable } from "./_components/data-table";
 import { SectionCards } from "../_components/section-cards";
-
+import { requirePageAuth } from "@/utils/access";
 
 type Board = { id: number; name: string; slug: string };
 
@@ -11,7 +10,13 @@ interface PageProps {
 }
 
 export default async function Provas({ params }: PageProps) {
-    await requireAuthWithRole("Admin");
+     await requirePageAuth({
+        role: "Admin",          // OU perm: "exam.read"
+        emailVerified: true,
+        blockSuspended: true,
+        blockDeleted: true,
+        onForbiddenRedirect: "/dashboard", // opcional
+      });
 
     const { slug } = await params;
 

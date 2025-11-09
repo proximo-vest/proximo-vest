@@ -1,9 +1,14 @@
-
-import { requireAuthWithRole } from "../../../../../utils/auth-guard";
 import { FormCreateBoard } from "./_components/formCreateBoard";
+import { requirePageAuth } from "@/utils/access";
 
 export default async function Provas() {
-    await requireAuthWithRole("Admin");
+     await requirePageAuth({
+        role: "Admin",          // OU perm: "exam.read"
+        emailVerified: true,
+        blockSuspended: true,
+        blockDeleted: true,
+        onForbiddenRedirect: "/dashboard", // opcional
+      });
 
 
     return (

@@ -12,13 +12,16 @@ content: [
     extend: {
       container: { center: true, padding: "2rem" },
       colors: {
+        vest: {
+          primary: "#7209B7",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "hsl(var(--primary))",
+          DEFAULT: "#7209B7",
           foreground: "hsl(var(--primary-foreground))",
         },
         secondary: {
