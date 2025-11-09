@@ -29,13 +29,44 @@ export function AccountSwitcher({
 }) {
   const [activeUser, setActiveUser] = useState(users[0]);
   const router = useRouter()
-
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    // opcional: informar outras abas
-    try { new BroadcastChannel("auth").postMessage("logout"); } catch { }
-    router.replace("/auth/login");
-  }
+    try {
+      // Se a API estiver no MESMO domínio, isso já funciona.
+      // Se estiver em outro domínio/subdomínio, use credentials: "include".
+      const res = await fetch("/api/auth/logout", {
+        method: "POST",
+        cache: "no-store",
+        // descomente se sua API for cross-site (outro domínio/subdomínio):
+        // credentials: "include",
+        headers: { "content-type": "application/json" },
+      });
+
+      // /api/auth/logout retorna 204; res.ok cobre isso sem tentar parsear JSON
+      if (!res.ok) {
+        // fallback (opcional): tenta limpar cookie via client também
+        try {
+          const { authClient } = await import("@/lib/auth-client");
+          await authClient.signOut();
+        } catch { }
+      }
+
+      // Notifica outras abas (UX)
+      try {
+        const ch = new BroadcastChannel("auth");
+        ch.postMessage("logout");
+        ch.close();
+      } catch { }
+
+      // Evita “voltar” pro dashboard pelo histórico
+      router.replace("/auth/login");
+      // Garantir rerender sem sessão
+      router.refresh();
+    } catch (e) {
+      // fallback final — ainda assim redireciona
+      router.replace("/auth/login");
+      router.refresh();
+    }
+  };
 
   return (
     <DropdownMenu>
