@@ -1,20 +1,20 @@
 import type { Config } from "tailwindcss"
 
 const config: Config = {
-darkMode: "class",
-content: [
-  "./app/**/*.{ts,tsx}",
-  "./pages/**/*.{ts,tsx}",
-  "./components/**/*.{ts,tsx}",
-  "./src/**/*.{ts,tsx}", // mantenha se você usa /src
-],
+  darkMode: "class",
+  content: [
+    "./app/**/*.{ts,tsx}",
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}", // mantenha se você usa /src
+  ],
   theme: {
     extend: {
       container: { center: true, padding: "2rem" },
       colors: {
-        vest: {
-          primary: "#7209B7",
-        },
+
+        proximo: "#7209B7",
+
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
