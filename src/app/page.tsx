@@ -8,13 +8,11 @@ export default function Home() {
             <div className="min-h-[calc(100vh-6rem)] flex flex-col items-center py-20 px-6">
       <div className="md:mt-6 flex items-center justify-center">
         <div className="items-center justify-center text-center max-w-2xl">
-
           <img
             src="/logo.svg"
             alt="Próximo Vest"
             className="mt-4 w-full max-w-[550px] xs:max-w-[450px] sm:max-w-[550px] md:max-w-[650px] h-auto"
           />
-
           <p className="mt-4 font-bold max-w-[60ch] xs:text-lg"   style={{ color: "#7209B7" }}>
             A próxima plataforma do vestibulando!
           </p>
