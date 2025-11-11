@@ -37,11 +37,11 @@ export default async function Provas({ params }: PageProps) {
 
     return (
         <div className="@container/main flex flex-col gap-4 md:gap-6">
-            <h1 className="font-bold text-2xl">Criação da Edição</h1>
-            <p>Essa é primeira etapa para começar a criar um prova. Coloque o nome da prova. Exemplo:    <code>Unicamp</code></p>
             <BoardViewClient board={board} />
             <SectionCards editionNumber={editionNumber} />
-            <DataTable data={editions} />
+            <h1 className="font-bold text-2xl">Edições</h1>
+            <p>Aqui você criará as edições de uma prova Exemplo:    <code>2025,2024,2023</code></p>
+            <DataTable data={editions} slug={slug}  />
 
         </div>
     );

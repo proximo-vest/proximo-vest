@@ -2,7 +2,7 @@ import { DataTable } from "./_components/data-table";
 import { SectionCards } from "./_components/section-cards";
 import { requirePageAuth } from "@/utils/access";
 
-type Board = { id: number; name: string; slug: string };
+
 export default async function Provas() {
   await requirePageAuth({
     role: "Admin",          // OU perm: "exam.read"

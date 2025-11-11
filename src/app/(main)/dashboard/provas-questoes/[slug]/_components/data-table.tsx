@@ -20,7 +20,7 @@ import { withDndColumn } from "../../../../../../components/data-table/table-uti
 import { dashboardColumns } from "./columns";
 import { sectionSchema } from "./schema";
 
-export function DataTable({ data: initialData }: { data: z.infer<typeof sectionSchema>[] }) {
+export function DataTable({ data: initialData, slug}: { data: z.infer<typeof sectionSchema>[]; slug: string }) {
   const [data, setData] = React.useState(() => initialData);
   const columns = withDndColumn(dashboardColumns);
   const table = useDataTableInstance({ data, columns, getRowId: (row) => row.id.toString() });
@@ -47,7 +47,7 @@ export function DataTable({ data: initialData }: { data: z.infer<typeof sectionS
           <DataTableViewOptions table={table} />
           <Button variant="outline" size="sm">
             <Plus />
-            <a className="hidden lg:inline" href="/dashboard/provas-questoes/createBoard">Criar Prova</a>
+            <a className="hidden lg:inline" href={`/dashboard/provas-questoes/${slug}/createEdition`}>Criar Edição</a>
           </Button>
         </div>
       </div>

@@ -50,47 +50,56 @@ async function handleDelete(itemId: number) {
   }
 }
 
-
-
 export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
-
   {
     accessorKey: "name",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Nome da Prova" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Nome da Prova" />
+    ),
     cell: ({ row }) => {
       return (
-        <a className="underline-offset-2 hover:underline" href={`/dashboard/provas-questoes/${row.original.slug}`}>
+        <a
+          className="underline-offset-2 hover:underline"
+          href={`/dashboard/provas-questoes/${row.original.slug}`}
+        >
           <Label htmlFor={`${row.original.slug}-name`}>
             {row.original.name}
           </Label>
         </a>
-
-
-
-      )
+      );
     },
     enableSorting: false,
   },
-
 
   {
     id: "actions",
     cell: ({ row }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="data-[state=open]:bg-muted text-muted-foreground flex size-8" size="icon">
+          <Button
+            variant="ghost"
+            className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
+            size="icon"
+          >
             <EllipsisVertical />
             <span className="sr-only">Open menu</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-32">
-          <DropdownMenuItem onClick={() => <TableCellViewer item={row.original} />}>Edit</DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => <TableCellViewer item={row.original} />}
+          >
+            Edit
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
 
           {/* Trigger do modal */}
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <DropdownMenuItem variant="destructive" onSelect={(e) => e.preventDefault()}>
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={(e) => e.preventDefault()}
+              >
                 Delete
               </DropdownMenuItem>
             </AlertDialogTrigger>
@@ -99,12 +108,17 @@ export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
               <AlertDialogHeader>
                 <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Essa ação não poderá ser desfeita. O item será permanentemente removido.
+                  Essa ação não poderá ser desfeita. O item será permanentemente
+                  removido.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={() => handleDelete(row.original.id)}>Deletar</AlertDialogAction>
+                <AlertDialogAction
+                  onClick={() => handleDelete(row.original.id)}
+                >
+                  Deletar
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
