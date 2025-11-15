@@ -2,69 +2,243 @@
 
 import * as React from "react";
 
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnFiltersState,
+  type PaginationState,
+  type RowSelectionState,
+  type SortingState,
+  type VisibilityState,
+} from "@tanstack/react-table";
+
 import { Plus } from "lucide-react";
 import { z } from "zod";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useDataTableInstance } from "@/hooks/use-data-table-instance";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-import { DataTable as DataTableNew } from "../../../../../../components/data-table/data-table";
-import { DataTablePagination } from "../../../../../../components/data-table/data-table-pagination";
-import { DataTableViewOptions } from "../../../../../../components/data-table/data-table-view-options";
-import { withDndColumn } from "../../../../../../components/data-table/table-utils";
-
-import { dashboardColumns } from "./columns";
+import { getDashboardColumns } from "./columns";
 import { sectionSchema } from "./schema";
 
-export function DataTable({ data: initialData, slug}: { data: z.infer<typeof sectionSchema>[]; slug: string }) {
-  const [data, setData] = React.useState(() => initialData);
-  const columns = withDndColumn(dashboardColumns);
-  const table = useDataTableInstance({ data, columns, getRowId: (row) => row.id.toString() });
+
+type Section = z.infer<typeof sectionSchema>;
+
+type DataTableProps = {
+  data: Section[];
+  slug: string;
+};
+
+export function DataTable({ data, slug }: DataTableProps) {
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    []
+  );
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
+  const [pagination, setPagination] = React.useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+
+const columns = React.useMemo<ColumnDef<Section, unknown>[]>(
+  () => getDashboardColumns(slug),
+  [slug]
+);
+
+
+  const table = useReactTable({
+    data,
+    columns,
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+      pagination,
+    },
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
+    onPaginationChange: setPagination,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
+    getRowId: (row) => row.id.toString(),
+  });
+
+  const pageIndex = table.getState().pagination.pageIndex;
+  const pageSize = table.getState().pagination.pageSize;
+  const pageCount = table.getPageCount();
 
   return (
-    <Tabs defaultValue="outline" className="w-full flex-col justify-start gap-6">
+    <Tabs
+      defaultValue="outline"
+      className="w-full flex-col justify-start gap-6"
+    >
       <div className="flex items-center justify-between">
-        <Label htmlFor="view-selector" className="sr-only">
-          View
-        </Label>
-        <Select defaultValue="outline">
-          <SelectTrigger className="flex w-fit @4xl/main:hidden" size="sm" id="view-selector">
-            <SelectValue placeholder="Select a view" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="outline">Outline</SelectItem>
-            <SelectItem value="past-performance">Past Performance</SelectItem>
-            <SelectItem value="key-personnel">Key Personnel</SelectItem>
-            <SelectItem value="focus-documents">Focus Documents</SelectItem>
-          </SelectContent>
-        </Select>
-        
         <div className="flex items-center gap-2">
-          <DataTableViewOptions table={table} />
-          <Button variant="outline" size="sm">
-            <Plus />
-            <a className="hidden lg:inline" href={`/dashboard/provas-questoes/${slug}/createEdition`}>Criar Edição</a>
+          <Button variant="outline" size="sm" asChild>
+            <a href={`/dashboard/provas-questoes/${slug}/createEdition`}>
+              <Plus className="mr-1 h-4 w-4" />
+              <span className="hidden lg:inline">Criar Edição</span>
+            </a>
           </Button>
         </div>
+
+=
       </div>
-      <TabsContent value="outline" className="relative flex flex-col gap-4 overflow-auto">
+
+      <TabsContent
+        value="outline"
+        className="relative flex flex-col gap-4 overflow-auto"
+      >
         <div className="overflow-hidden rounded-lg border">
-          <DataTableNew dndEnabled table={table} columns={columns} onReorder={setData} />
+          <Table>
+            <TableHeader className="bg-muted sticky top-0 z-10">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id} colSpan={header.colSpan}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+
+            <TableBody>
+              {table.getRowModel().rows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    Sem registros
+                  </TableCell>
+                </TableRow>
+              ) : (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
-        <DataTablePagination table={table} />
+
+        {/* Paginação aqui embaixo, no mesmo estilo da sua */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-2 py-3 text-sm">
+          <div className="flex items-center gap-2">
+            <span>Linhas por página</span>
+            <select
+              className="h-8 rounded border px-2 text-sm"
+              value={pageSize}
+              onChange={(e) => table.setPageSize(Number(e.target.value))}
+            >
+              {[5, 10, 20, 50].map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+
+            <span className="text-muted-foreground">
+              Página <strong>{pageIndex + 1}</strong> de{" "}
+              <strong>{pageCount || 1}</strong>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => table.setPageIndex(0)}
+              disabled={!table.getCanPreviousPage()}
+            >
+              {"<<"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              {"<"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              {">"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => table.setPageIndex(pageCount - 1)}
+              disabled={!table.getCanNextPage()}
+            >
+              {">>"}
+            </Button>
+          </div>
+        </div>
       </TabsContent>
+
+      {/* As outras tabs você pode preencher depois */}
       <TabsContent value="past-performance" className="flex flex-col">
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
+        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed" />
       </TabsContent>
       <TabsContent value="key-personnel" className="flex flex-col">
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
+        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed" />
       </TabsContent>
       <TabsContent value="focus-documents" className="flex flex-col">
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
+        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed" />
       </TabsContent>
     </Tabs>
   );

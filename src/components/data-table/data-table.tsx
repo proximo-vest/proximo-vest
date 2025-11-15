@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 import { DraggableRow } from "./draggable-row";
 
+
 interface DataTableProps<TData, TValue> {
   table: TanStackTable<TData>;
   columns: ColumnDef<TData, TValue>[];

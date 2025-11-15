@@ -3,12 +3,14 @@ import { CircleCheck, Loader, EllipsisVertical } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
@@ -21,12 +23,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+
 import { DataTableColumnHeader } from "../../../../../components/data-table/data-table-column-header";
 import { toast } from "sonner";
 import { sectionSchema } from "./schema";
@@ -47,6 +44,25 @@ async function handleDelete(itemId: number) {
   } catch (err) {
     console.error(err);
     toast.error("Falha ao deletar o item");
+  }
+}
+
+async function handleEdit(id: number, data: { name: any }) {
+  try {
+    const res = await fetch(`/api/exam-board/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) {
+      console.log(await res.text());
+      throw new Error("Erro ao salvar edição");
+    }
+    toast.success("Item editado com sucesso!");
+    window.location.reload();
+  } catch (err) {
+    console.error(err);
+    toast.error("Erro ao salvar a edição");
   }
 }
 
@@ -72,59 +88,124 @@ export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
   },
 
   {
-    id: "actions",
-    cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+    accessorKey: "actions",
+header: () => (
+  <div className="text-right pr-4">
+    Ações
+  </div>
+),
+
+    cell: ({ row }) => {
+      const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+      const [isEditOpen, setIsEditOpen] = React.useState(false);
+
+      // dados atuais
+      const item = row.original;
+
+      return (
+    <div className="flex justify-end items-center gap-2 pr-4">
+          {/* Botão que abre o modal de edição */}
           <Button
-            variant="ghost"
-            className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
-            size="icon"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsEditOpen(true)}
           >
-            <EllipsisVertical />
-            <span className="sr-only">Open menu</span>
+            Editar
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-32">
-          <DropdownMenuItem
-            onClick={() => <TableCellViewer item={row.original} />}
-          >
-            Edit
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
 
-          {/* Trigger do modal */}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <DropdownMenuItem
-                variant="destructive"
-                onSelect={(e) => e.preventDefault()}
+          {/* Modal de edição */}
+          <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Editar Prova</DialogTitle>
+                <DialogDescription>
+                  Faça alterações nos dados da prova e salve quando terminar.
+                </DialogDescription>
+              </DialogHeader>
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+
+                  const formData = new FormData(e.currentTarget);
+
+                  await handleEdit(item.id, {
+                    name: formData.get("name"),
+                  });
+
+                  setIsEditOpen(false);
+                }}
+                className="space-y-4"
               >
-                Delete
-              </DropdownMenuItem>
-            </AlertDialogTrigger>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">Nome</label>
+                  <input
+                    name="name"
+                    defaultValue={item.name}
+                    className="border rounded-md px-2 py-1"
+                    required
+                  />
+                </div>
 
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsEditOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    Salvar alterações
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          {/* Botão de deletar */}
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setIsDialogOpen(true)}
+          >
+            Deletar
+          </Button>
+
+          {/* Modal de confirmação de delete */}
+          <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                <AlertDialogTitle>
+                  Tem certeza que deseja deletar esta prova?
+                </AlertDialogTitle>
                 <AlertDialogDescription>
-                  Essa ação não poderá ser desfeita. O item será permanentemente
-                  removido.
+                  Esta ação não pode ser desfeita. Isso irá deletar
+                  permanentemente a prova.
                 </AlertDialogDescription>
               </AlertDialogHeader>
+
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
+
                 <AlertDialogAction
-                  onClick={() => handleDelete(row.original.id)}
+                  className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                  onClick={async () => {
+                    await handleDelete(item.id);
+                    setIsDialogOpen(false);
+                  }}
                 >
                   Deletar
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
+        </div>
+      );
+    },
     enableSorting: false,
   },
 ];

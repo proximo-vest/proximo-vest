@@ -15,7 +15,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { DataTableColumnHeader } from "../../../../../components/data-table/data-table-column-header";
 
@@ -23,10 +29,11 @@ import { sectionSchema } from "./schema";
 import { TableCellViewer } from "./table-cell-viewer";
 
 export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
-
   {
     accessorKey: "header",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Nome" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Nome" />
+    ),
     cell: ({ row }) => {
       return <TableCellViewer item={row.original} />;
     },
@@ -34,30 +41,32 @@ export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
   },
   {
     accessorKey: "email",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Email" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Email" />
+    ),
     cell: ({ row }) => {
       return (
-
         <Label htmlFor={`${row.original.email}-name`}>
           {row.original.email}
         </Label>
-
-
-
-
-      )
+      );
     },
     enableSorting: false,
   },
   {
     accessorKey: "type",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Cargos" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Cargos" />
+    ),
     cell: ({ row }) => (
       <div className="w-32">
-
         {row.original.roles.length > 0 ? (
           row.original.roles.map((role) => (
-            <Badge key={role.roleId} variant="outline" className="text-muted-foreground px-1.5">
+            <Badge
+              key={role.roleId}
+              variant="outline"
+              className="text-muted-foreground px-1.5"
+            >
               {role.role?.name ?? "Sem nome"}
             </Badge>
           ))
@@ -66,14 +75,15 @@ export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
             Nenhum
           </Badge>
         )}
-
       </div>
     ),
     enableSorting: false,
   },
   {
     accessorKey: "status",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Status" />
+    ),
     cell: ({ row }) => (
       <Badge
         variant="outline"
@@ -96,7 +106,6 @@ export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
           </>
         )}
       </Badge>
-
     ),
     enableSorting: false,
   },
@@ -106,7 +115,11 @@ export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
     cell: () => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="data-[state=open]:bg-muted text-muted-foreground flex size-8" size="icon">
+          <Button
+            variant="ghost"
+            className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
+            size="icon"
+          >
             <EllipsisVertical />
             <span className="sr-only">Open menu</span>
           </Button>
