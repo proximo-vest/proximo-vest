@@ -36,21 +36,22 @@ import {
 import { dashboardColumns } from "./columns";
 import { sectionSchema } from "./schema";
 
+
 type Section = z.infer<typeof sectionSchema>;
 
 type DataTableProps = {
   data: Section[];
+  slug: string;
 };
 
-export function DataTable({ data }: DataTableProps) {
+export function DataTable({ data, slug }: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] =
-    React.useState<RowSelectionState>({});
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -97,15 +98,14 @@ export function DataTable({ data }: DataTableProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
-            <a href="/dashboard/provas-questoes/createBoard">
+            <a href={`/dashboard/provas-questoes/${slug}/createEdition`}>
               <Plus className="mr-1 h-4 w-4" />
-              <span className="hidden lg:inline">Criar Prova</span>
+              <span className="hidden lg:inline">Criar Edição</span>
             </a>
           </Button>
         </div>
 
-        {/* Se quiser depois, aqui dá pra recolocar DataTableViewOptions com table */}
-        {/* <DataTableViewOptions table={table} /> */}
+=
       </div>
 
       <TabsContent
