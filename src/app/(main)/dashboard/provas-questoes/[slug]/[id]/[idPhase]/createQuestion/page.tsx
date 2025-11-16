@@ -1,8 +1,8 @@
-import { FormCreateEdition } from "./_components/formCreateEdition";
+import { CreateQuestionForm } from "./_components/formCreateEdition";
 import { requirePageAuth } from "@/utils/access";
 
 interface PageProps {
-  params: { slug: string; id: string };
+  params: { slug: string; id: string, idPhase: string };
 }
 
 export default async function Provas({ params }: PageProps) {
@@ -14,22 +14,24 @@ export default async function Provas({ params }: PageProps) {
     onForbiddenRedirect: "/dashboard", // opcional
   });
 
-  const { slug, id } = await params;
-  const res = await fetch(`${process.env.API_URL}/exam-board/slug/${slug}`, {
+  const { slug, id, idPhase } = await params;
+  const res = await fetch(`${process.env.API_URL}/exam-phase/${idPhase} `, {
     cache: "no-store",
   });
 
-  const board = await res.json();
+  const phase = await res.json();
 
-  const boardId = board.id as number;
-  if (boardId === undefined) {
+  console.log(phase)
+
+  const phaseId = phase.id as number;
+  if (phaseId === undefined) {
     return null;
   }
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <h1 className="font-bold text-2xl">
-        Criar edição da prova da {board.name}
+        Criar edição da prova da {phase.name}
       </h1>
 
       <p>
@@ -37,7 +39,7 @@ export default async function Provas({ params }: PageProps) {
         edição de prova de um determinado ano
       </p>
 
-      <FormCreateEdition id={Number(id)} slug={slug} />
+      <CreateQuestionForm isDiscursive={phase.isDiscursive} examPhaseId={phase.id} defaultOptionCount={phase.defaultOptionCount}   />
     </div>
   );
 }

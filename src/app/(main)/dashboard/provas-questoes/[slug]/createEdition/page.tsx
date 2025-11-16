@@ -24,16 +24,18 @@ export default async function Provas({ params }: PageProps) {
   const boardId = board.id as number;
   if (boardId === undefined) {
     return null;
-    }
-
-
+  }
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <h1 className="font-bold text-2xl">Criar edição da prova da {board.name}</h1>
+      <h1 className="font-bold text-2xl">
+        Criar edição da prova da {board.name}
+      </h1>
 
-        <p>Aqui você criará as edições de uma prova Exemplo:   <code>2025,2024,2023</code></p>
-
+      <p>
+        Aqui você criará as edições de uma prova Exemplo:{" "}
+        <code>2025,2024,2023</code>
+      </p>
 
       <FormCreateEdition boardId={boardId} slug={slug} />
     </div>

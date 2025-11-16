@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 
 import React from "react";
-import { DataTableColumnHeader } from "../../../../../../../components/data-table/data-table-column-header";
+import { DataTableColumnHeader } from "../../../../../../../../components/data-table/data-table-column-header";
 import { toast } from "sonner";
 import { sectionSchema } from "./schema";
 

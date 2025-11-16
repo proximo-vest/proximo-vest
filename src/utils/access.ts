@@ -14,6 +14,7 @@ export async function getSessionOrNull() {
   return auth.api.getSession({ headers: hdrs });
 }
 
+
 // ========================
 // Carrega dados de autorização do usuário
 // - status, emailVerified
