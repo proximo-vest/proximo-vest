@@ -1,11 +1,12 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -14,124 +15,264 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 const FormSchema = z.object({
-  examBoardId: z.number(),
-  year: z.number(),
-  editionLabel: z.string().min(1, "O rótulo da edição é obrigatório"),
-  notes: z.string().optional(),
+  examEditionId: z.number(),
+  phaseNumber: z.number({}),
+  dayNumber: z.number().nullable(),
+  subjectBlock: z.string().nullable(),
+  questionCountExpected: z.number().nullable(),
+  defaultOptionCount: z.number().nullable(),
+  isDiscursive: z.boolean(),
 });
 
-export function FormCreateEdition({ boardId, slug }: { boardId: number; slug: string }) {
+export function FormCreateEdition({
+  id,
+  slug,
+}: {
+  id: number;
+  slug: string;
+}) {
   const router = useRouter();
-  const [serverError, setServerError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+console.log(id)
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
-      examBoardId: boardId,
-      editionLabel: "",
-      notes: "",
+      examEditionId: id,
+      dayNumber: null,
+      subjectBlock: null,
+      questionCountExpected: null,
+      defaultOptionCount: null,
+      isDiscursive: undefined,
     },
     mode: "onSubmit",
   });
 
   const onSubmit = async (data: z.infer<typeof FormSchema>) => {
-    setServerError(null);
+    setIsSubmitting(true);
     toast("Carregando...");
-    console.log(process.env.API_URL);
+
     try {
-        data.year = Number(data.year);
-      const res = await fetch(`/api/exam-edition/create`, {
+      console.log(data)
+      const res = await fetch(`/api/exam-phase/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          examBoardId: data.examBoardId,
-          year: Number(data.year),
-          editionLabel: data.editionLabel,
-          notes: data.notes,
-        }),
+        body: JSON.stringify(data),
       });
 
       if (!res.ok) {
-        // tenta obter a mensagem de erro do servidor
         const err = await res.json().catch(() => ({}));
-        setServerError(err?.error || "Erro ao fazer login");
+        console.error(err);
+        toast.error(err?.error || "Erro ao criar fase");
         return;
       }
-      router.push(`/dashboard/provas-questoes/${slug}`);
+
+      toast.success("Fase criada com sucesso!");
+      router.push(`/dashboard/provas-questoes/${slug}/${id}`);
     } catch (err) {
       console.error(err);
-      setServerError("Erro inesperado. Tente novamente mais tarde.");
+      toast.error("Erro inesperado. Tente novamente mais tarde.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
+  const isDiscursive = form.watch("isDiscursive");
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {/* Fase */}
         <FormField
           control={form.control}
-          name="year"
+          name="phaseNumber"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Ano</FormLabel>
+              <FormLabel>Fase</FormLabel>
               <FormControl>
                 <Input
-                  id="year"
+                  id="phaseNumber"
                   type="number"
-                  placeholder="Ano da edição (Ex: 2024)"
+                  placeholder="Número da fase (Ex: 1)"
                   autoComplete="off"
                   {...field}
-                  onChange={(e) => field.onChange(e.target.value === "" ? undefined : e.target.valueAsNumber)}
+                  value={field.value ?? ""}
+                  onChange={(e) =>
+                    field.onChange(
+                      e.target.value === "" ? undefined : e.target.valueAsNumber
+                    )
+                  }
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
+
+        {/* Dia */}
         <FormField
           control={form.control}
-          name="editionLabel"
+          name="dayNumber"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Título da Edição</FormLabel>
+              <FormLabel>Dia</FormLabel>
               <FormControl>
                 <Input
-                  id="editionLabel"
-                  type="text"
-                  placeholder="Digite o título da edição"
+                  id="dayNumber"
+                  type="number"
+                  placeholder="Dia da fase (Ex: 1, 2)"
                   autoComplete="off"
                   {...field}
+                  value={field.value ?? ""}
+                  onChange={(e) =>
+                    field.onChange(
+                      e.target.value === "" ? null : e.target.valueAsNumber
+                    )
+                  }
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-                <FormField
+
+        {/* Bloco de disciplinas */}
+        <FormField
           control={form.control}
-          name="notes"
+          name="subjectBlock"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Observações</FormLabel>
+              <FormLabel>Bloco de disciplinas</FormLabel>
               <FormControl>
                 <Input
-                  id="notes"
+                  id="subjectBlock"
                   type="text"
-                  placeholder="Observações adicionais"
+                  placeholder="Ex: Linguagens, Humanas, Exatas..."
                   autoComplete="off"
                   {...field}
+                  value={field.value ?? ""}
+                  onChange={(e) =>
+                    field.onChange(
+                      e.target.value === "" ? null : e.target.value
+                    )
+                  }
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        {serverError && toast.error(serverError)}
+
+        {/* Quantidade esperada de questões */}
+        <FormField
+          control={form.control}
+          name="questionCountExpected"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Quantidade de questões (esperado)</FormLabel>
+              <FormControl>
+                <Input
+                  id="questionCountExpected"
+                  type="number"
+                  placeholder="Ex: 90"
+                  autoComplete="off"
+                  {...field}
+                  value={field.value ?? ""}
+                  onChange={(e) =>
+                    field.onChange(
+                      e.target.value === "" ? null : e.target.valueAsNumber
+                    )
+                  }
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {/* Tipo de questão: Objetiva ou Discursiva */}
+        <FormField
+          control={form.control}
+          name="isDiscursive"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Tipo de prova</FormLabel>
+              <FormDescription>
+                Escolha se esta fase é objetiva ou discursiva.
+              </FormDescription>
+
+              <Select
+                onValueChange={(value) => field.onChange(value === "true")}
+                value={
+                  field.value === undefined || field.value === null
+                    ? undefined
+                    : field.value
+                      ? "true"
+                      : "false"
+                }
+              >
+                <FormControl>
+                  <SelectTrigger id="isDiscursive">
+                    <SelectValue placeholder="Selecione o tipo da fase" />
+                  </SelectTrigger>
+                </FormControl>
+
+                <SelectContent>
+                  <SelectItem value="false">Objetiva</SelectItem>
+                  <SelectItem value="true">Discursiva</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Quantidade padrão de alternativas - só aparece se isDiscursive === false */}
+        {isDiscursive === false && (
+          <FormField
+            control={form.control}
+            name="defaultOptionCount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Quantidade padrão de alternativas</FormLabel>
+                <FormControl>
+                  <Select
+                    onValueChange={(value) =>
+                      field.onChange(value === "" ? null : Number(value))
+                    }
+                    value={field.value?.toString() ?? ""}
+                  >
+                    <SelectTrigger id="defaultOptionCount">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="4">4 alternativas</SelectItem>
+                      <SelectItem value="5">5 alternativas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
         <div className="flex justify-center">
-          <Button className="w-full my-4" type="submit">
-            Criar Edição
+          <Button className="w-full my-4" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Criando..." : "Criar Fase"}
           </Button>
         </div>
       </form>
