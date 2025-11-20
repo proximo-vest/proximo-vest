@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+// import { Switch } from "@/components/ui/switch"; // ainda não está sendo usado
 import { toast } from "sonner";
 
 type CreateQuestionFormProps = {
@@ -45,15 +45,26 @@ const mdParser = new MarkdownIt({
   breaks: true,
 });
 
+// Lista fixa de subjects (name + slug)
+const SUBJECTS = [
+  { slug: "matematica", name: "Matemática" },
+  { slug: "geometria-plana", name: "Geometria Plana" },
+  { slug: "geometria-espacial", name: "Geometria Espacial" },
+  { slug: "interpretacao-texto", name: "Interpretação de Texto" },
+  { slug: "fisica", name: "Física" },
+  { slug: "quimica", name: "Química" },
+  { slug: "biologia", name: "Biologia" },
+];
+
 // ---------------- Schemas ----------------
 const baseSchema = z.object({
   examPhaseId: z.number(),
   numberLabel: z.string().min(1, "Obrigatório"),
 
-  subjects: z.string().optional(), // "matematica,geometria"
-  skills: z.string().optional(),   // "H01,H02"
+  // Agora subjects é array de slugs
+  subjects: z.array(z.string()).optional(),
+  skills: z.string().optional(), // "H01,H02"
 
-  // 🔴 Agora o estímulo é obrigatório
   stimulusText: z.string().min(1, "O estímulo é obrigatório"),
   stimulusSourceRef: z.string().optional(),
 });
@@ -76,7 +87,7 @@ const mcqSchema = baseSchema
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["optionE"],
-        message: "Preencha a alternativa E ou selecione 4 alternativas.",
+        message: "Obrigatório",
       });
     }
 
@@ -117,7 +128,7 @@ export function CreateQuestionForm({
     defaultValues: {
       examPhaseId,
       numberLabel: "",
-      subjects: "",
+      subjects: [] as string[],
       skills: "",
       stimulusText: "",
       stimulusSourceRef: "",
@@ -142,48 +153,43 @@ export function CreateQuestionForm({
   const optionCount = form.watch("optionCount");
   const hasOptionE = defaultOptionCount === 5; // controla E por prop
 
-   const { uploadAsync, isPending: isUploadingImage } = useUploadFile({
-    route: "markdown-images", // mesmo nome definido na rota do servidor
-    // se a rota NÃO estiver em /api/upload, define: api: "/api/SEU-CAMINHO"
+  const { uploadAsync, isPending: isUploadingImage } = useUploadFile({
+    route: "markdown-images",
   });
 
-const handleMarkdownImageUpload = async (file: File): Promise<string> => {
-  console.log(file)
-  // Faz o upload da imagem para o B2 via Better Upload
-  const uploaded = (await uploadAsync(file)) as any;
+  const handleMarkdownImageUpload = async (file: File): Promise<string> => {
+    console.log(file);
+    const uploaded = (await uploadAsync(file)) as any;
 
-  console.log("UPLOAD RESULT:", uploaded.file.objectInfo.key); // 👈 importante
+    console.log("UPLOAD RESULT:", uploaded.file.objectInfo.key);
 
-  // O Better Upload para S3 retorna { key, bucket }
-  if (!uploaded.file.objectInfo.key) {
-    console.error(uploaded.error)
-    throw new Error("Upload falhou: nenhuma key retornada.");
-  }
+    if (!uploaded.file.objectInfo.key) {
+      console.error(uploaded.error);
+      throw new Error("Upload falhou: nenhuma key retornada.");
+    }
 
-  const key = uploaded.file.objectInfo.key;
+    const key = uploaded.file.objectInfo.key;
 
-  // Montar URL pública do B2 S3
-  const url = `${process.env.NEXT_PUBLIC_R2_S3_ENDPOINT!}/${key}`;
+    const url = `${process.env.NEXT_PUBLIC_R2_S3_ENDPOINT!}/${key}`;
 
-  return url; // markdown recebe ![](url)
-};
-
+    return url; // markdown recebe ![](url)
+  };
 
   async function onSubmit(values: any) {
     try {
       setIsSubmitting(true);
 
-      const subjectsArray = values.subjects
-        ? values.subjects.split(",").map((s: string) => s.trim()).filter(Boolean)
-        : undefined;
+      const subjectsArray =
+        values.subjects && values.subjects.length > 0
+          ? (values.subjects as string[])
+          : undefined;
 
       const skillsArray = values.skills
         ? values.skills.split(",").map((s: string) => s.trim()).filter(Boolean)
         : undefined;
 
-      // 🔴 Estímulo obrigatório tratado como Markdown em contentHtml
       const stimulus = {
-        contentHtml: values.stimulusText, // markdown
+        contentHtml: values.stimulusText,
         contentText: undefined,
         sourceRef: values.stimulusSourceRef || undefined,
       };
@@ -198,7 +204,7 @@ const handleMarkdownImageUpload = async (file: File): Promise<string> => {
       };
 
       if (!isDiscursive) {
-        const count = Number(values.optionCount); // 4 ou 5 (fixo via prop)
+        const count = Number(values.optionCount); // 4 ou 5
 
         const options = [
           { label: "A", textPlain: values.optionA },
@@ -230,7 +236,7 @@ const handleMarkdownImageUpload = async (file: File): Promise<string> => {
         };
       }
 
-      const res = await fetch("/api/question", {
+      const res = await fetch("/api/question/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -249,6 +255,7 @@ const handleMarkdownImageUpload = async (file: File): Promise<string> => {
       form.reset({
         ...form.getValues(),
         numberLabel: "",
+        subjects: [],
         optionA: "",
         optionB: "",
         optionC: "",
@@ -287,17 +294,81 @@ const handleMarkdownImageUpload = async (file: File): Promise<string> => {
             />
           </div>
 
+          {/* Subjects como multi-select de bloquinhos */}
           <FormField
             control={form.control}
             name="subjects"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Subjects (slugs, separados por vírgula)</FormLabel>
+                <FormLabel>Subjects</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="Ex: matematica,geometria-plana"
-                    {...field}
-                  />
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {SUBJECTS.map((subject) => {
+                        const selected = (field.value || []).includes(
+                          subject.slug
+                        );
+
+                        return (
+                          <button
+                            key={subject.slug}
+                            type="button"
+                            className={[
+                              "rounded-full border px-3 py-1 text-sm transition",
+                              selected
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-muted text-muted-foreground hover:bg-accent",
+                            ].join(" ")}
+                            onClick={() => {
+                              const current: string[] = field.value || [];
+                              if (selected) {
+                                field.onChange(
+                                  current.filter(
+                                    (s: string) => s !== subject.slug
+                                  )
+                                );
+                              } else {
+                                field.onChange([...current, subject.slug]);
+                              }
+                            }}
+                          >
+                            {subject.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {field.value && field.value.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {field.value.map((slug: string) => {
+                          const subject = SUBJECTS.find(
+                            (s) => s.slug === slug
+                          );
+                          return (
+                            <span
+                              key={slug}
+                              className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs"
+                            >
+                              {subject?.name ?? slug}
+                              <button
+                                type="button"
+                                className="ml-1 text-xs"
+                                onClick={() =>
+                                  field.onChange(
+                                    field.value.filter(
+                                      (s: string) => s !== slug
+                                    )
+                                  )
+                                }
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -319,74 +390,69 @@ const handleMarkdownImageUpload = async (file: File): Promise<string> => {
           />
         </div>
 
-      {/* Estímulo */}
-<div className="space-y-4 rounded-md border p-4">
-  <h2 className="text-sm font-semibold">Estímulo</h2>
+        {/* Estímulo */}
+        <div className="space-y-4 rounded-md border p-4">
+          <h2 className="text-sm font-semibold">Estímulo</h2>
 
-  {/* Editor de Markdown para o estímulo */}
-  <FormField
-    control={form.control}
-    name="stimulusText"
-    render={({ field }) => (
-      <FormItem>
-        <FormLabel>Texto do estímulo (Markdown)</FormLabel>
-        <FormControl>
-          <div className="border rounded-md overflow-hidden">
-            <MdEditor
-              style={{ height: 300 }}
-              value={field.value || ""}
-              renderHTML={(text) => mdParser.render(text)}
-              onChange={({ text }) => field.onChange(text)}
-              // Upload de imagem via Better Upload + Backblaze B2
-              onImageUpload={handleMarkdownImageUpload}
-              config={{
-                view: {
-                  menu: true,
-                  md: true,
-                  html: true,
-                },
-                canView: {
-                  menu: true,
-                  md: true,
-                  html: true,
-                  both: true,
-                  fullScreen: true,
-                  hideMenu: true,
-                },
-              }}
-            />
-          </div>
-        </FormControl>
-        
-        <FormMessage />
-      </FormItem>
-    )}
-  />
+          <FormField
+            control={form.control}
+            name="stimulusText"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Texto do estímulo (Markdown)</FormLabel>
+                <FormControl>
+                  <div className="border rounded-md overflow-hidden">
+                    <MdEditor
+                      style={{ height: 300 }}
+                      value={field.value || ""}
+                      renderHTML={(text) => mdParser.render(text)}
+                      onChange={({ text }) => field.onChange(text)}
+                      onImageUpload={handleMarkdownImageUpload}
+                      config={{
+                        view: {
+                          menu: true,
+                          md: true,
+                          html: true,
+                        },
+                        canView: {
+                          menu: true,
+                          md: true,
+                          html: true,
+                          both: true,
+                          fullScreen: true,
+                          hideMenu: true,
+                        },
+                      }}
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-  {/* Continua tendo o campo de referência da fonte */}
-  <FormField
-    control={form.control}
-    name="stimulusSourceRef"
-    render={({ field }) => (
-      <FormItem>
-        <FormLabel>Referência da fonte</FormLabel>
-        <FormControl>
-          <Input placeholder="Ex: ENEM 2023 - Prova Azul" {...field} />
-        </FormControl>
-        <FormMessage />
-      </FormItem>
-    )}
-  />
-</div>
+          <FormField
+            control={form.control}
+            name="stimulusSourceRef"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Referência da fonte</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ex: ENEM 2023 - Prova Azul" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
-        {/* Se NÃO for discursiva → MCQ */}
+        {/* MCQ */}
         {!isDiscursive && (
           <div className="space-y-4 rounded-md border p-4">
             <h2 className="text-sm font-semibold">
               Questão objetiva (MCQ) – {defaultOptionCount} alternativas
             </h2>
 
-            {/* correta + shuffle */}
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
@@ -409,36 +475,15 @@ const handleMarkdownImageUpload = async (file: File): Promise<string> => {
                             {letter}
                           </SelectItem>
                         ))}
-                        {hasOptionE && (
-                          <SelectItem value="E">E</SelectItem>
-                        )}
+                        {hasOptionE && <SelectItem value="E">E</SelectItem>}
                       </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="shuffleOptions"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                    <div className="space-y-0.5">
-                      <FormLabel>Embaralhar alternativas</FormLabel>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
             </div>
 
-            {/* alternativas em coluna */}
             <div className="flex flex-col gap-4">
               <FormField
                 control={form.control}
@@ -518,7 +563,7 @@ const handleMarkdownImageUpload = async (file: File): Promise<string> => {
           </div>
         )}
 
-        {/* Se for discursiva → FR */}
+        {/* Discursiva */}
         {isDiscursive && (
           <div className="space-y-4 rounded-md border p-4">
             <h2 className="text-sm font-semibold">Questão discursiva (FR)</h2>

@@ -17,6 +17,6 @@ export async function GET() {
     emailVerified: profile.emailVerified,
     status: profile.status,         // "active" | "suspended" | "deleted"
     roles: profile.roles,           // ["admin", ...]
-    perms: Object.keys(profile.perms).filter(k => profile.perms[k]),
+    perms: Object.keys(profile.perms).filter(k => profile.perms[k as keyof typeof profile.perms]),
   });
 }

@@ -68,7 +68,7 @@ export function NavUser({
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <CircleUser />
-                Account
+                Minha conta
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <CreditCard />

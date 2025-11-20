@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { BadgeCheck, Bell, CreditCard, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -97,9 +98,11 @@ export function AccountSwitcher({
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => {
+            router.push("/dashboard/minha-conta")
+          }}>
             <BadgeCheck />
-            Account
+            Minha conta
           </DropdownMenuItem>
           <DropdownMenuItem>
             <CreditCard />
