@@ -1,31 +1,43 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";       // sua instância server do Better Auth
-import { prisma } from "@/lib/prisma";   // seu Prisma client
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
-type RoleName = string; // ex.: "admin", "editor"
-type PermissionKey = string; // ex.: "exam.publish"
+// ============================================================================
+// TIPOS
+// ============================================================================
 
-// ========================
-// Sessão a partir do request
-// ========================
+export type RoleName = string;          // ex.: "Admin"
+export type PermissionKey = string;     // ex.: "exam.publish"
+
+export type AuthProfile = {
+  emailVerified: boolean;
+  status: "active" | "suspended" | "deleted";
+  roles: RoleName[];
+  perms: PermissionKey[];               // Agora é ARRAY
+};
+
+// ============================================================================
+// SESSÃO (Server only)
+// ============================================================================
+
 export async function getSessionOrNull() {
   const hdrs = Object.fromEntries((await headers()).entries());
   return auth.api.getSession({ headers: hdrs });
 }
 
+// ============================================================================
+// CARREGA PERFIL DE AUTORIZAÇÃO (Server only)
+// ============================================================================
 
-// ========================
-// Carrega dados de autorização do usuário
-// - status, emailVerified
-// - roles (por nome) e permissões efetivas (Role + User overrides)
-// ========================
-async function getAuthProfile(userId: string) {
+export async function getAuthProfile(
+  userId: string
+): Promise<AuthProfile | null> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
       emailVerified: true,
-      status: true, // "active" | "suspended" | "deleted"
+      status: true,
       roles: {
         select: {
           role: {
@@ -53,121 +65,157 @@ async function getAuthProfile(userId: string) {
 
   if (!user) return null;
 
-  // roles ativos
+  // ----- ROLES -----
   const roleNames = (user.roles ?? [])
-    .filter(r => r.role?.isActive)
-    .map(r => r.role!.name);
+    .filter((r) => r.role?.isActive)
+    .map((r) => r.role!.name);
 
-  // permissões via roles (só ativas)
+  // ----- PERMISSÕES VIA ROLE -----
   const fromRoles: Record<PermissionKey, boolean> = {};
+
   for (const ur of user.roles ?? []) {
     if (!ur.role?.isActive) continue;
+
     for (const rp of ur.role.perms ?? []) {
       if (!rp.permission?.isActive) continue;
-      const key = rp.permission.key;
-      // granted=true liga, granted=false desliga
-      fromRoles[key] = rp.granted;
+      fromRoles[rp.permission.key] = rp.granted;
     }
   }
 
-  // permissões diretas (sobrescrevem)
+  // ----- PERMISSÕES DIRETAS (override) -----
   const direct: Record<PermissionKey, boolean> = {};
+
   for (const up of user.directPerms ?? []) {
     if (!up.permission?.isActive) continue;
     direct[up.permission.key] = up.granted;
   }
 
-  // merge efetivo: direto > role
-  const effective: Record<PermissionKey, boolean> = { ...fromRoles, ...direct };
+  // ----- MERGE FINAL -----
+  const merged = { ...fromRoles, ...direct };
+
+  const permsArray = Object.entries(merged)
+    .filter(([, granted]) => granted)
+    .map(([key]) => key);
 
   return {
     emailVerified: user.emailVerified,
-    status: user.status, // "active" | "suspended" | "deleted"
+    status: user.status as "active" | "suspended" | "deleted",
     roles: roleNames,
-    perms: effective, // { "exam.publish": true/false, ... }
+    perms: permsArray,
   };
 }
 
-// ========================
-// Predicados
-// ========================
-export function hasRole(profile: { roles: string[] }, role: RoleName) {
+// ============================================================================
+// PREDICADOS (Server + Client)
+// ============================================================================
+
+export function hasRole(profile: AuthProfile, role: RoleName | RoleName[]) {
+  if (Array.isArray(role)) {
+    return role.every((r) => profile.roles.includes(r));
+  }
   return profile.roles.includes(role);
 }
 
-export function hasPermission(profile: { perms: Record<string, boolean> }, key: PermissionKey) {
-  return !!profile.perms[key];
+export function hasPermission(
+  profile: AuthProfile,
+  perm: PermissionKey | PermissionKey[]
+) {
+  if (Array.isArray(perm)) {
+    return perm.every((p) => profile.perms.includes(p));
+  }
+  return profile.perms.includes(perm);
 }
 
-/** Pode aceitar role OU permission (ou ambos). Se ambos forem passados, exige ambos. */
 export function can(
-  profile: { roles: string[]; perms: Record<string, boolean> },
-  opts?: { role?: RoleName; perm?: PermissionKey }
+  profile: AuthProfile,
+  opts?: { role?: RoleName | RoleName[]; perm?: PermissionKey | PermissionKey[] }
 ) {
   if (!opts) return true;
+
   const roleOk = opts.role ? hasRole(profile, opts.role) : true;
   const permOk = opts.perm ? hasPermission(profile, opts.perm) : true;
+
   return roleOk && permOk;
 }
 
-// ========================
-// Guard para API (JSON)
-// ========================
+// ============================================================================
+// REQUIRE API AUTH (Server only)
+// ============================================================================
+
 export async function requireAPIAuth(opts?: {
-  role?: RoleName;          // ex.: "admin"
-  perm?: PermissionKey;     // ex.: "exam.publish"
-  emailVerified?: boolean;  // default: false
-  blockSuspended?: boolean; // default: true
-  blockDeleted?: boolean;   // default: true
+  role?: RoleName | RoleName[];
+  perm?: PermissionKey | PermissionKey[];
+  emailVerified?: boolean;
+  blockSuspended?: boolean;
+  blockDeleted?: boolean;
 }) {
   const session = await getSessionOrNull();
+
   if (!session?.user?.id) {
-    return { ok: false as const, res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    return {
+      ok: false as const,
+      res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
   }
 
   const profile = await getAuthProfile(session.user.id as string);
   if (!profile) {
-    return { ok: false as const, res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    return {
+      ok: false as const,
+      res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
   }
 
-  // Status
   const blockSuspended = opts?.blockSuspended ?? true;
   const blockDeleted = opts?.blockDeleted ?? true;
 
   if (blockDeleted && profile.status === "deleted") {
-    return { ok: false as const, res: NextResponse.json({ error: "DeletedAccount" }, { status: 403 }) };
+    return {
+      ok: false as const,
+      res: NextResponse.json({ error: "DeletedAccount" }, { status: 403 }),
+    };
   }
+
   if (blockSuspended && profile.status === "suspended") {
-    return { ok: false as const, res: NextResponse.json({ error: "Suspended" }, { status: 403 }) };
+    return {
+      ok: false as const,
+      res: NextResponse.json({ error: "Suspended" }, { status: 403 }),
+    };
   }
 
-  // Email verificado
   if (opts?.emailVerified && !profile.emailVerified) {
-    return { ok: false as const, res: NextResponse.json({ error: "EmailNotVerified" }, { status: 403 }) };
+    return {
+      ok: false as const,
+      res: NextResponse.json({ error: "EmailNotVerified" }, { status: 403 }),
+    };
   }
 
-  // Role/perm
   if (!can(profile, { role: opts?.role, perm: opts?.perm })) {
-    return { ok: false as const, res: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+    return {
+      ok: false as const,
+      res: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
   }
 
   return { ok: true as const, session, profile };
 }
 
-// ========================
-// Guard para páginas (redirect)
-// ========================
+// ============================================================================
+// REQUIRE PAGE AUTH (Server only)
+// ============================================================================
+
 export async function requirePageAuth(opts?: {
-  role?: RoleName;
-  perm?: PermissionKey;
+  role?: RoleName | RoleName[];
+  perm?: PermissionKey | PermissionKey[];
   emailVerified?: boolean;
   blockSuspended?: boolean;
   blockDeleted?: boolean;
-  onUnauthorizedRedirect?: string;  // default: "/auth/sign-in"
-  onUnverifiedRedirect?: string;    // default: "/verify-email"
-  onSuspendedRedirect?: string;     // default: "/suspended"
-  onDeletedRedirect?: string;       // default: "/deleted"
-  onForbiddenRedirect?: string;     // default: "/dashboard"
+
+  onUnauthorizedRedirect?: string;
+  onUnverifiedRedirect?: string;
+  onSuspendedRedirect?: string;
+  onDeletedRedirect?: string;
+  onForbiddenRedirect?: string;
 }) {
   const {
     onUnauthorizedRedirect = "/auth/login",
@@ -178,25 +226,24 @@ export async function requirePageAuth(opts?: {
   } = opts ?? {};
 
   const session = await getSessionOrNull();
+  const { redirect } = await import("next/navigation");
+
   if (!session?.user?.id) {
-    const { redirect } = await import("next/navigation");
     return redirect(onUnauthorizedRedirect);
   }
 
   const profile = await getAuthProfile(session.user.id as string);
   if (!profile) {
-    const { redirect } = await import("next/navigation");
     return redirect(onUnauthorizedRedirect);
   }
 
-  // Status
   const blockSuspended = opts?.blockSuspended ?? true;
   const blockDeleted = opts?.blockDeleted ?? true;
 
-  const { redirect } = await import("next/navigation");
   if (blockDeleted && profile.status === "deleted") {
     return redirect(onDeletedRedirect);
   }
+
   if (blockSuspended && profile.status === "suspended") {
     return redirect(onSuspendedRedirect);
   }

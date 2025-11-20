@@ -60,6 +60,12 @@ export const sidebarItems: NavGroup[] = [
         icon: Users,
         comingSoon: false,
       },
+            {
+        title: "Roles",
+        url: "/dashboard/roles",
+        icon: Lock,
+        comingSoon: false,
+      },
     ],
   },
   {

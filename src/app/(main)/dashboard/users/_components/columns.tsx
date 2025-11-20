@@ -2,6 +2,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { CircleCheck, Loader, EllipsisVertical } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useRouter } from 'next/navigation'
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -112,7 +113,10 @@ export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
 
   {
     id: "actions",
-    cell: () => (
+    cell: ({ row }) => {
+         const router = useRouter(); // hook tem que ficar aqui dentro
+   
+         return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -128,11 +132,26 @@ export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
           <DropdownMenuItem>Edit</DropdownMenuItem>
           <DropdownMenuItem>Make a copy</DropdownMenuItem>
           <DropdownMenuItem>Favorite</DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                router.push(`/dashboard/users/${row.original.id}/roles`)
+              }
+            >
+              Editar cargos
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                router.push(`/dashboard/users/${row.original.id}/permissions`)
+              }
+            >
+              Editar permissões
+            </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive">Delete</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    ),
+     );
+    },
     enableSorting: false,
   },
 ];

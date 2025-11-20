@@ -23,7 +23,6 @@ export default async function Provas({ params }: PageProps) {
 
   const phase = await res.json();
 
-
   const resQuestions = await fetch(
     `${process.env.API_URL}/question/list?examPhaseId=${phase.id}`,
     {
@@ -31,16 +30,18 @@ export default async function Provas({ params }: PageProps) {
     }
   );
   const questions = await resQuestions.json();
-  const questionsNumber = questions.length as number;
+  const questionsNumber = questions.items.length as number;
+  console.log(questions)
+  console.log(questionsNumber)
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <BoardViewClient board={phase} />
       <SectionCards phasesNumber={questionsNumber} />
-      <h1 className="font-bold text-2xl">Fases</h1>
+      <h1 className="font-bold text-2xl">Questões</h1>
       <p>
-        Aqui você criará as fases (1° e 2° fase) ou os dias (D1 e D2) de uma edição de prova de um determinado ano</p>
-      <DataTable data={questions} slug={slug} id={id} />
+        Aqui você criará as questões para a fase selecionada.</p>
+      <DataTable data={questions} slug={slug} id={id} idPhase={idPhase} />
     </div>
   );
 }

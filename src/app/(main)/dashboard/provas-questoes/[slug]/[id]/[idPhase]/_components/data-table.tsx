@@ -43,9 +43,10 @@ type DataTableProps = {
   data: Section[];
   slug: string;
   id: string;
+  idPhase: string;
 };
 
-export function DataTable({ data, slug, id}: DataTableProps) {
+export function DataTable({ data, slug, id, idPhase }: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -99,9 +100,9 @@ export function DataTable({ data, slug, id}: DataTableProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
-            <a href={`/dashboard/provas-questoes/${slug}/${id}/createPhase`}>
+            <a href={`/dashboard/provas-questoes/${slug}/${id}/${idPhase}/createQuestion`}>
               <Plus className="mr-1 h-4 w-4" />
-              <span className="hidden lg:inline">Criar Fases</span>
+              <span className="hidden lg:inline">Criar Questões</span>
             </a>
           </Button>
         </div>

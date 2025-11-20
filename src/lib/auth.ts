@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { createAuthMiddleware, APIError } from "better-auth/api";
 import { prisma } from "./prisma";
-
+import { sendMail } from "@/lib/mail"; // sua função para enviar e-mail
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
@@ -10,6 +10,39 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+ sendResetPassword: async ({ user, url, token }, request) => {
+      // Better Auth já criou o registro na tabela Verification pra esse token
+      await sendMail({
+        to: user.email,
+        subject: "Redefinição de senha",
+        html: `
+          <p>Olá, ${user.name ?? user.email}!</p>
+          <p>Você solicitou a redefinição da sua senha.</p>
+          <p>Clique no link abaixo para criar uma nova senha:</p>
+          <p><a href="${url}">Redefinir senha</a></p>
+          <p>Se não foi você, pode ignorar este e-mail.</p>
+        `,
+      });
+    },
+  },
+
+  // 2) Verificação de e-mail
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url, token }, request) => {
+      // Better Auth também usa a Verification pra esse token
+      await sendMail({
+        to: user.email,
+        subject: "Confirme seu e-mail",
+        html: `
+          <p>Olá, ${user.name ?? user.email}!</p>
+          <p>Para confirmar seu e-mail, clique no link abaixo:</p>
+          <p><a href="${url}">Verificar e-mail</a></p>
+        `,
+      });
+    },
+    sendOnSignUp: true,            // manda sozinho após cadastro
+    autoSignInAfterVerification: true,
+    // expiresIn: 3600,            // opcional, em segundos (padrão 1h)
   },
    socialProviders: {
     google: {

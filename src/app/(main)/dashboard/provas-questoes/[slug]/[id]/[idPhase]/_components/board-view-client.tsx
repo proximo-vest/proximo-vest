@@ -4,7 +4,7 @@
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-type Board = { editionLabel: string; error?: any };
+type Board = { phaseNumber: number; error?: any };
 
 export function BoardViewClient({ board }: { board: Board }) {
   const router = useRouter();
@@ -16,7 +16,7 @@ export function BoardViewClient({ board }: { board: Board }) {
 
   return (
     <>
-      <h1 className="text-2xl font-bold">Vestibular: {board.editionLabel}</h1>
+      <h1 className="text-2xl font-bold">Fase: {board.phaseNumber}</h1>
     </>
   );
 }
