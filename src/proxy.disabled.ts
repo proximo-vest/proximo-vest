@@ -12,7 +12,6 @@ export function proxy(req: NextRequest) {
   // const token = req.cookies.get("session_token")?.value;
   // if (token && req.nextUrl.pathname === "/auth/login")
   //   return NextResponse.redirect(new URL("/dashboard", req.url));
-
   return NextResponse.next();
 }
 
