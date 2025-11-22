@@ -48,9 +48,12 @@ async function handleDelete(itemId: number) {
   }
 }
 
-async function handleEdit(id: number, data: { name: any }) {
+async function handleEdit(
+  id: number,
+  data: { editionLabel: string; notes?: string | null }
+) {
   try {
-    const res = await fetch(`/api/exam-board/${id}`, {
+    const res = await fetch(`/api/exam-edition/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
       headers: { "Content-Type": "application/json" },
@@ -141,7 +144,8 @@ export function getDashboardColumns(slug: string): ColumnDef<Section>[] {
                     const formData = new FormData(e.currentTarget);
 
                     await handleEdit(item.id, {
-                      name: formData.get("name"),
+                      editionLabel: String(formData.get("editionLabel") || ""),
+                      notes: formData.get("notes")?.toString() || null,
                     });
 
                     setIsEditOpen(false);
@@ -151,10 +155,23 @@ export function getDashboardColumns(slug: string): ColumnDef<Section>[] {
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-medium">Ano</label>
                     <input
-                      name="name"
+                      name="year"
                       defaultValue={item.year}
                       className="border rounded-md px-2 py-1"
+                      disabled
+                    />
+                    <label className="text-sm font-medium">Título</label>
+                    <input
+                      name="editionLabel"
+                      defaultValue={item.editionLabel}
+                      className="border rounded-md px-2 py-1"
                       required
+                    />
+                    <label className="text-sm font-medium">Observações</label>
+                    <input
+                      name="notes"
+                      defaultValue={item.notes || ""}
+                      className="border rounded-md px-2 py-1"
                     />
                   </div>
 

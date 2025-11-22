@@ -10,6 +10,8 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { ApproveQuestionButton } from "./_components/ApproveQuestionButton";
+import { QuestionStatusBadge } from "./_components/status-badge";
+
 
 const md = new MarkdownIt({
   html: true,
@@ -155,11 +157,8 @@ export default async function QuestionPreviewPage({ params }: PageProps) {
           {isDiscursive ? "Discursiva" : "Objetiva"}
         </Badge>
 
-        {question.status && (
-          <Badge variant="secondary" className="uppercase">
-            {question.status}
-          </Badge>
-        )}
+    <QuestionStatusBadge initialStatus={question.status as any} />
+
 
         {question.difficulty && (
           <Badge variant="outline">Dificuldade: {question.difficulty}</Badge>

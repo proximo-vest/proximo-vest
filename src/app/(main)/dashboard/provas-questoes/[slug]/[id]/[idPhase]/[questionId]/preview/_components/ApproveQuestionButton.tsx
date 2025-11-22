@@ -4,19 +4,18 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-type ApproveQuestionButtonProps = {
-  questionId: number;
-  initialStatus: "DRAFT" | "PUBLISHED" | "ARCHIVED";
-};
+type Status = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
 export function ApproveQuestionButton({
   questionId,
   initialStatus,
-}: ApproveQuestionButtonProps) {
-  const [status, setStatus] = useState(initialStatus);
+}: {
+  questionId: number;
+  initialStatus: Status;
+}) {
+  const [status, setStatus] = useState<Status>(initialStatus);
   const [isPending, startTransition] = useTransition();
 
-  // Se já não for rascunho, não mostra nada
   if (status !== "DRAFT") return null;
 
   function handleApprove() {
@@ -35,11 +34,18 @@ export function ApproveQuestionButton({
           );
         }
 
-        setStatus("PUBLISHED"); // some o botão
-        toast.success("Questão aprovada e publicada.");
+        setStatus("PUBLISHED");
+
+        // 🔥 EMITE EVENTO GLOBAL
+        window.dispatchEvent(
+          new CustomEvent("question-status-changed", {
+            detail: { status: "PUBLISHED" },
+          })
+        );
+
+        toast.success("Questão aprovada e publicada!");
       } catch (err: any) {
-        console.error(err);
-        toast.error(err.message || "Não foi possível aprovar a questão.");
+        toast.error(err.message || "Erro ao aprovar a questão.");
       }
     });
   }
@@ -47,7 +53,6 @@ export function ApproveQuestionButton({
   return (
     <Button
       size="sm"
-      variant="default"
       onClick={handleApprove}
       disabled={isPending}
     >

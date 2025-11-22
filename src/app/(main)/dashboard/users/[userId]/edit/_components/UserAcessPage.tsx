@@ -142,6 +142,7 @@ export function UserAccessPage({ userId, defaultName, defaultEmail }: Props) {
 
       setPermissionIds(nextPermissionIds);
       toast.success("Permissões atualizadas com sucesso");
+
     } catch (err: any) {
       console.error(err);
       toast.error(err.message ?? "Erro ao salvar permissões");
