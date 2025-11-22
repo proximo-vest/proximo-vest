@@ -9,6 +9,7 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
+import { ApproveQuestionButton } from "./_components/ApproveQuestionButton";
 
 const md = new MarkdownIt({
   html: true,
@@ -131,12 +132,21 @@ export default async function QuestionPreviewPage({ params }: PageProps) {
             plataforma (sem gabarito).
           </p>
         </div>
+        
 
-        <Button variant="outline" size="sm" asChild>
-          <a href={`/dashboard/provas-questoes/${slug}/${id}/${idPhase}`}>
-            Voltar para a lista
-          </a>
-        </Button>
+         <div className="flex items-center gap-2">
+          {/* Botão de aprovar só aparece se veio como DRAFT */}
+          <ApproveQuestionButton
+            questionId={question.id}
+            initialStatus={question.status as "DRAFT" | "PUBLISHED" | "ARCHIVED"}
+          />
+
+          <Button variant="outline" size="sm" asChild>
+            <a href={`/dashboard/provas-questoes/${slug}/${id}/${idPhase}`}>
+              Voltar para a lista
+            </a>
+          </Button>
+        </div>
       </div>
 
       {/* Metadados da questão */}
