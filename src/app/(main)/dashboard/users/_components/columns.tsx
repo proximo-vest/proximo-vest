@@ -129,25 +129,13 @@ export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-32">
-          <DropdownMenuItem>Edit</DropdownMenuItem>
-          <DropdownMenuItem>Make a copy</DropdownMenuItem>
-          <DropdownMenuItem>Favorite</DropdownMenuItem>
             <DropdownMenuItem
               onClick={() =>
-                router.push(`/dashboard/users/${row.original.id}/roles`)
+                router.push(`/dashboard/users/${row.original.id}/edit`)
               }
             >
-              Editar cargos
+              Editar
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                router.push(`/dashboard/users/${row.original.id}/permissions`)
-              }
-            >
-              Editar permissões
-            </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive">Delete</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
      );

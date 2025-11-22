@@ -1,14 +1,23 @@
 import { z } from "zod";
 
+
 export const sectionSchema = z.object({
-  id: z.number(),
-  examEditionId: z.number(),
-  phaseNumber: z.number(),
-  dayNumber: z.number().nullable(),
-
-  subjectBlock: z.string().nullable(),
-
-  questionCountExpected: z.number().nullable(),
-  defaultOptionCount: z.number().nullable(),
-  isDiscursive: z.boolean,
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+  items: z.array(
+    z.object({
+      id: z.number(),
+      examPhaseId: z.number(),
+      stimulusId: z.number(),
+      numberLabel: z.string(),
+      isDiscursive: z.boolean(),
+      difficulty: z.string().nullable(),
+      status: z.string(),
+      sourcePageStart: z.number().nullable(),
+      sourcePageEnd: z.number().nullable(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    })
+  ),
 });

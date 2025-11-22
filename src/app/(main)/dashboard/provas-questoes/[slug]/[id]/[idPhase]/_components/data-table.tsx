@@ -36,11 +36,11 @@ import {
 import { getdashboardColumns } from "./columns";
 import { sectionSchema } from "./schema";
 
-
-type Section = z.infer<typeof sectionSchema>;
+// cada linha da tabela é um item do array `items` do response
+type Question = z.infer<typeof sectionSchema>["items"][number];
 
 type DataTableProps = {
-  data: Section[];
+  data: Question[]; // você provavelmente já está passando response.items aqui
   slug: string;
   id: string;
   idPhase: string;
@@ -48,21 +48,21 @@ type DataTableProps = {
 
 export function DataTable({ data, slug, id, idPhase }: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
-  );
+  const [columnFilters, setColumnFilters] =
+    React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
+  const [rowSelection, setRowSelection] =
+    React.useState<RowSelectionState>({});
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   });
 
-  const columns = React.useMemo<ColumnDef<Section, unknown>[]>(
-    () => getdashboardColumns(slug, id),
-    [slug, id]
-  );
+const columns = React.useMemo<ColumnDef<Question, unknown>[]>(
+  () => getdashboardColumns(slug, id, idPhase),
+  [slug, id, idPhase]
+);
 
   const table = useReactTable({
     data,
@@ -100,14 +100,14 @@ export function DataTable({ data, slug, id, idPhase }: DataTableProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
-            <a href={`/dashboard/provas-questoes/${slug}/${id}/${idPhase}/createQuestion`}>
+            <a
+              href={`/dashboard/provas-questoes/${slug}/${id}/${idPhase}/createQuestion`}
+            >
               <Plus className="mr-1 h-4 w-4" />
               <span className="hidden lg:inline">Criar Questões</span>
             </a>
           </Button>
         </div>
-
-=
       </div>
 
       <TabsContent
@@ -164,7 +164,7 @@ export function DataTable({ data, slug, id, idPhase }: DataTableProps) {
           </Table>
         </div>
 
-        {/* Paginação aqui embaixo, no mesmo estilo da sua */}
+        {/* Paginação */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-2 py-3 text-sm">
           <div className="flex items-center gap-2">
             <span>Linhas por página</span>
@@ -231,7 +231,7 @@ export function DataTable({ data, slug, id, idPhase }: DataTableProps) {
         </div>
       </TabsContent>
 
-      {/* As outras tabs você pode preencher depois */}
+      {/* Outras tabs placeholder */}
       <TabsContent value="past-performance" className="flex flex-col">
         <div className="aspect-video w-full flex-1 rounded-lg border border-dashed" />
       </TabsContent>
