@@ -83,6 +83,8 @@ export default async function Layout({
     navbarStyle,
   };
 
+  console.log(profile)
+
   return (
     <AuthProfileProvider profile={profile}>
       <SidebarProvider defaultOpen={defaultOpen}>

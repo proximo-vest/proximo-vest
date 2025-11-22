@@ -41,16 +41,19 @@ type Section = z.infer<typeof sectionSchema>;
 type DataTableProps = {
   data: Section[];
 };
-
+import { useCan } from "@/hooks/use-can";
 export function DataTable({ data }: DataTableProps) {
+  const canCreate = useCan({
+
+    perm: ["exam.read"]
+  });
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] =
-    React.useState<RowSelectionState>({});
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -95,6 +98,7 @@ export function DataTable({ data }: DataTableProps) {
       className="w-full flex-col justify-start gap-6"
     >
       <div className="flex items-center justify-between">
+        {canCreate && (
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
             <a href="/dashboard/provas-questoes/createBoard">
@@ -103,6 +107,7 @@ export function DataTable({ data }: DataTableProps) {
             </a>
           </Button>
         </div>
+        )}
 
         {/* Se quiser depois, aqui dá pra recolocar DataTableViewOptions com table */}
         {/* <DataTableViewOptions table={table} /> */}

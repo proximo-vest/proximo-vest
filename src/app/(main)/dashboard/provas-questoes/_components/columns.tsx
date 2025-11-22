@@ -90,7 +90,6 @@ export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
       const canDelete = useCan({
         role: ["Admin"],
       });
-      console.log(canDelete)
 
       const [isDialogOpen, setIsDialogOpen] = React.useState(false);
       const [isEditOpen, setIsEditOpen] = React.useState(false);
