@@ -3,11 +3,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import MarkdownIt from "markdown-it";
 import { useUploadFile } from "@better-upload/client";
 import "react-markdown-editor-lite/lib/index.css";
+
 const MdEditor = dynamic(() => import("react-markdown-editor-lite"), {
   ssr: false,
 });
@@ -30,8 +31,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// import { Switch } from "@/components/ui/switch"; // ainda não está sendo usado
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { AlertTriangle } from "lucide-react";
 
 type CreateQuestionFormProps = {
   isDiscursive: boolean;
@@ -45,25 +54,29 @@ const mdParser = new MarkdownIt({
   breaks: true,
 });
 
-// Lista fixa de subjects (name + slug)
-const SUBJECTS = [
-  { slug: "matematica", name: "Matemática" },
-  { slug: "geometria-plana", name: "Geometria Plana" },
-  { slug: "geometria-espacial", name: "Geometria Espacial" },
-  { slug: "interpretacao-texto", name: "Interpretação de Texto" },
-  { slug: "fisica", name: "Física" },
-  { slug: "quimica", name: "Química" },
-  { slug: "biologia", name: "Biologia" },
-];
+// Tipos esperados da API
+type SubjectDTO = {
+  id: number | string;
+  name: string;
+  slug: string;
+};
+
+type SkillDTO = {
+  id: number | string;
+  code: string | null; // ex: "H01" ou null
+  label: string; // nome bonito da skill
+};
 
 // ---------------- Schemas ----------------
 const baseSchema = z.object({
   examPhaseId: z.number(),
   numberLabel: z.string().min(1, "Obrigatório"),
 
-  // Agora subjects é array de slugs
+  // array de slugs
   subjects: z.array(z.string()).optional(),
-  skills: z.string().optional(), // "H01,H02"
+
+  // array de códigos (H01, H15 etc.)
+  skills: z.array(z.string()).optional(),
 
   stimulusText: z.string().min(1, "O estímulo é obrigatório"),
   stimulusSourceRef: z.string().optional(),
@@ -111,12 +124,35 @@ const frSchema = baseSchema.extend({
     .min(1, "Informe pelo menos uma resposta modelo"),
 });
 
+type TaxonomyCheckResult = {
+  missingSubjects: string[];
+  missingSkills: string[];
+};
+
 export function CreateQuestionForm({
   isDiscursive,
   examPhaseId,
   defaultOptionCount,
 }: CreateQuestionFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // dados vindos da API
+  const [subjectsOptions, setSubjectsOptions] = useState<SubjectDTO[]>([]);
+  const [skillsOptions, setSkillsOptions] = useState<SkillDTO[]>([]);
+  const [isLoadingTaxonomies, setIsLoadingTaxonomies] = useState(true);
+
+  // estado para input de skills (tags)
+  const [skillInput, setSkillInput] = useState("");
+
+  // estado para input de subject "livre" (slug novo)
+  const [subjectInput, setSubjectInput] = useState("");
+
+  // modal de criação quando algo não existir no BD
+  const [taxonomyCheckResult, setTaxonomyCheckResult] =
+    useState<TaxonomyCheckResult | null>(null);
+  const [pendingValues, setPendingValues] = useState<any | null>(null);
+  const [isTaxonomyModalOpen, setIsTaxonomyModalOpen] = useState(false);
+  const [isCreatingTaxonomies, setIsCreatingTaxonomies] = useState(false);
 
   const schema = useMemo(
     () => (isDiscursive ? frSchema : mcqSchema),
@@ -129,12 +165,11 @@ export function CreateQuestionForm({
       examPhaseId,
       numberLabel: "",
       subjects: [] as string[],
-      skills: "",
+      skills: [] as string[],
       stimulusText: "",
       stimulusSourceRef: "",
 
-      // defaults da parte objetiva
-      optionCount: String(defaultOptionCount ?? 5), // vem da prop
+      optionCount: String(defaultOptionCount ?? 5),
       shuffleOptions: true,
       correctOptionKey: "A",
       optionA: "",
@@ -143,25 +178,20 @@ export function CreateQuestionForm({
       optionD: "",
       optionE: "",
 
-      // defaults da parte discursiva
       frMaxScore: 10,
       frAnswerGuidanceHtml: "",
       frExpectedAnswerHtml: "",
     },
   });
 
-  const optionCount = form.watch("optionCount");
-  const hasOptionE = defaultOptionCount === 5; // controla E por prop
+  const hasOptionE = defaultOptionCount === 5;
 
   const { uploadAsync, isPending: isUploadingImage } = useUploadFile({
     route: "markdown-images",
   });
 
   const handleMarkdownImageUpload = async (file: File): Promise<string> => {
-    console.log(file);
     const uploaded = (await uploadAsync(file)) as any;
-
-    console.log("UPLOAD RESULT:", uploaded.file.objectInfo.key);
 
     if (!uploaded.file.objectInfo.key) {
       console.error(uploaded.error);
@@ -169,100 +199,210 @@ export function CreateQuestionForm({
     }
 
     const key = uploaded.file.objectInfo.key;
-
     const url = `${process.env.NEXT_PUBLIC_R2_S3_ENDPOINT!}/${key}`;
-
-    return url; // markdown recebe ![](url)
+    return url;
   };
 
+  // ---------------- Carregar subjects/skills da API ----------------
+  const fetchTaxonomies = useCallback(async () => {
+    try {
+      setIsLoadingTaxonomies(true);
+
+      const [subjectsRes, skillsRes] = await Promise.all([
+        fetch("/api/subject/list"),
+        fetch("/api/skill/list"),
+      ]);
+
+      if (!subjectsRes.ok || !skillsRes.ok) {
+        throw new Error("Erro ao carregar subjects/skills.");
+      }
+
+      const subjectsData = (await subjectsRes.json()) as SubjectDTO[];
+      const skillsData = (await skillsRes.json()) as SkillDTO[];
+
+      setSubjectsOptions(subjectsData || []);
+      setSkillsOptions(skillsData || []);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(
+        err.message || "Não foi possível carregar subjects/skills da API."
+      );
+    } finally {
+      setIsLoadingTaxonomies(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTaxonomies();
+  }, [fetchTaxonomies]);
+
+  // ---------------- Funções de taxonomia (check + create) ----------------
+
+  function checkMissingTaxonomies(values: any): TaxonomyCheckResult | null {
+    const existingSubjectSlugs = new Set(subjectsOptions.map((s) => s.slug));
+    const existingSkillCodes = new Set(
+      skillsOptions
+        .map((s) => s.code?.toUpperCase())
+        .filter(Boolean) as string[]
+    );
+
+    const selectedSubjects: string[] = values.subjects || [];
+    const selectedSkills: string[] = values.skills || [];
+
+    const missingSubjects = selectedSubjects.filter(
+      (slug) => !existingSubjectSlugs.has(slug)
+    );
+
+    const missingSkills = selectedSkills.filter(
+      (code) => !existingSkillCodes.has(code.toUpperCase())
+    );
+
+    if (missingSubjects.length === 0 && missingSkills.length === 0) {
+      return null;
+    }
+
+    return { missingSubjects, missingSkills };
+  }
+
+  async function createMissingTaxonomies(result: TaxonomyCheckResult) {
+    const { missingSubjects, missingSkills } = result;
+
+    if (
+      (!missingSubjects || missingSubjects.length === 0) &&
+      (!missingSkills || missingSkills.length === 0)
+    ) {
+      return;
+    }
+
+    await Promise.all([
+      ...missingSubjects.map((slug) =>
+        fetch("/api/subject/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            slug,
+            name: slug, // depois você pode trocar pra algo mais bonito
+          }),
+        })
+      ),
+      ...missingSkills.map((code) =>
+        fetch("/api/skill/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            code,
+            label: code, // usa o próprio code como label inicial
+          }),
+        })
+      ),
+    ]);
+
+    await fetchTaxonomies();
+  }
+
+  async function createQuestion(values: any) {
+    const subjectsArray =
+      values.subjects && values.subjects.length > 0
+        ? (values.subjects as string[])
+        : undefined;
+
+    const skillsArray =
+      values.skills && values.skills.length > 0
+        ? (values.skills as string[])
+        : undefined;
+
+    const stimulus = {
+      contentHtml: values.stimulusText,
+      contentText: undefined,
+      sourceRef: values.stimulusSourceRef || undefined,
+    };
+
+    const payload: any = {
+      examPhaseId: values.examPhaseId,
+      numberLabel: values.numberLabel,
+      isDiscursive,
+      subjects: subjectsArray,
+      skills: skillsArray,
+      stimulus,
+    };
+
+    if (!isDiscursive) {
+      const count = Number(values.optionCount); // 4 ou 5
+
+      const options = [
+        { label: "A", textPlain: values.optionA },
+        { label: "B", textPlain: values.optionB },
+        { label: "C", textPlain: values.optionC },
+        { label: "D", textPlain: values.optionD },
+        ...(count === 5 && values.optionE
+          ? [{ label: "E", textPlain: values.optionE }]
+          : []),
+      ];
+
+      payload.mcq = {
+        optionCount: count,
+        shuffleOptions: values.shuffleOptions,
+        correctOptionKey: values.correctOptionKey,
+        options,
+      };
+    } else {
+      payload.fr = {
+        maxScore: values.frMaxScore,
+        answerGuidanceHtml: values.frAnswerGuidanceHtml || undefined,
+        expectedAnswers: [
+          {
+            label: "Modelo",
+            answerHtml: values.frExpectedAnswerHtml,
+            maxScore: values.frMaxScore,
+          },
+        ],
+      };
+    }
+
+    const res = await fetch("/api/question/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.error?.message || "Erro ao criar questão.");
+    }
+
+    const created = await res.json();
+    toast.success(`Questão criada com sucesso! ID: ${created.id}`);
+
+    form.reset({
+      ...form.getValues(),
+      numberLabel: "",
+      subjects: [],
+      skills: [],
+      optionA: "",
+      optionB: "",
+      optionC: "",
+      optionD: "",
+      optionE: "",
+      frExpectedAnswerHtml: "",
+    });
+  }
+
+  // ---------------- onSubmit com check no BD ----------------
   async function onSubmit(values: any) {
     try {
       setIsSubmitting(true);
 
-      const subjectsArray =
-        values.subjects && values.subjects.length > 0
-          ? (values.subjects as string[])
-          : undefined;
+      const result = checkMissingTaxonomies(values);
 
-      const skillsArray = values.skills
-        ? values.skills.split(",").map((s: string) => s.trim()).filter(Boolean)
-        : undefined;
-
-      const stimulus = {
-        contentHtml: values.stimulusText,
-        contentText: undefined,
-        sourceRef: values.stimulusSourceRef || undefined,
-      };
-
-      const payload: any = {
-        examPhaseId: values.examPhaseId,
-        numberLabel: values.numberLabel,
-        isDiscursive,
-        subjects: subjectsArray,
-        skills: skillsArray,
-        stimulus,
-      };
-
-      if (!isDiscursive) {
-        const count = Number(values.optionCount); // 4 ou 5
-
-        const options = [
-          { label: "A", textPlain: values.optionA },
-          { label: "B", textPlain: values.optionB },
-          { label: "C", textPlain: values.optionC },
-          { label: "D", textPlain: values.optionD },
-          ...(count === 5 && values.optionE
-            ? [{ label: "E", textPlain: values.optionE }]
-            : []),
-        ];
-
-        payload.mcq = {
-          optionCount: count,
-          shuffleOptions: values.shuffleOptions,
-          correctOptionKey: values.correctOptionKey,
-          options,
-        };
-      } else {
-        payload.fr = {
-          maxScore: values.frMaxScore,
-          answerGuidanceHtml: values.frAnswerGuidanceHtml || undefined,
-          expectedAnswers: [
-            {
-              label: "Modelo",
-              answerHtml: values.frExpectedAnswerHtml,
-              maxScore: values.frMaxScore,
-            },
-          ],
-        };
+      if (result) {
+        setPendingValues(values);
+        setTaxonomyCheckResult(result);
+        setIsTaxonomyModalOpen(true);
+        setIsSubmitting(false);
+        return;
       }
 
-      const res = await fetch("/api/question/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error?.message || "Erro ao criar questão.");
-      }
-
-      const created = await res.json();
-      toast.success(`Questão criada com sucesso! ID: ${created.id}`);
-
-      form.reset({
-        ...form.getValues(),
-        numberLabel: "",
-        subjects: [],
-        optionA: "",
-        optionB: "",
-        optionC: "",
-        optionD: "",
-        optionE: "",
-        frExpectedAnswerHtml: "",
-      });
+      await createQuestion(values);
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Erro inesperado ao criar questão.");
@@ -271,22 +411,304 @@ export function CreateQuestionForm({
     }
   }
 
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Dados básicos */}
-        <div className="space-y-4 rounded-md border p-4">
-          <h2 className="text-sm font-semibold">Dados da questão</h2>
+  async function handleConfirmCreateTaxonomies() {
+    if (!pendingValues || !taxonomyCheckResult) return;
 
-          <div className="grid gap-4 sm:grid-cols-2">
+    try {
+      setIsCreatingTaxonomies(true);
+      await createMissingTaxonomies(taxonomyCheckResult);
+      setIsTaxonomyModalOpen(false);
+      setTaxonomyCheckResult(null);
+
+      await createQuestion(pendingValues);
+      setPendingValues(null);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erro ao criar novas taxonomias.");
+    } finally {
+      setIsCreatingTaxonomies(false);
+    }
+  }
+
+  // ---------------- Render ----------------
+  if (isLoadingTaxonomies) {
+    return (
+      <div className="rounded-md border p-4 text-sm text-muted-foreground">
+        Carregando dados de subjects e skills...
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {/* Dados básicos */}
+          <div className="space-y-4 rounded-md border p-4">
+            <h2 className="text-sm font-semibold">Dados da questão</h2>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="numberLabel"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Número da questão</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: 1, 10, 5A..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Subjects com dados vindos da API + input de slug */}
             <FormField
               control={form.control}
-              name="numberLabel"
+              name="subjects"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Número da questão</FormLabel>
+                  <FormLabel>Assuntos (subjects)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: 1, 10, 5A..." {...field} />
+                    <div className="space-y-3">
+                      <p className="text-xs text-muted-foreground">
+                        Clique para selecionar um ou mais assuntos existentes
+                        ou adicione um novo slug. Se o slug não existir no
+                        banco, será perguntado se você quer criá-lo.
+                      </p>
+
+                      {/* Chips vindos da API */}
+                      <div className="flex flex-wrap gap-2">
+                        {subjectsOptions.map((subject) => {
+                          const selected = (field.value || []).includes(
+                            subject.slug
+                          );
+
+                          return (
+                            <button
+                              key={subject.id}
+                              type="button"
+                              className={[
+                                "rounded-full border px-3 py-1 text-xs sm:text-sm transition",
+                                selected
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-muted text-muted-foreground hover:bg-accent",
+                              ].join(" ")}
+                              onClick={() => {
+                                const current: string[] = field.value || [];
+                                if (selected) {
+                                  field.onChange(
+                                    current.filter(
+                                      (s: string) => s !== subject.slug
+                                    )
+                                  );
+                                } else {
+                                  field.onChange([...current, subject.slug]);
+                                }
+                              }}
+                            >
+                              {subject.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Input para adicionar subject "livre" (slug) */}
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Novo subject (slug, ex: geometria-analitica)"
+                          value={subjectInput}
+                          onChange={(e) => setSubjectInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === ",") {
+                              e.preventDefault();
+                              const slug = subjectInput.trim();
+                              if (!slug) return;
+                              const current: string[] = field.value || [];
+                              if (!current.includes(slug)) {
+                                field.onChange([...current, slug]);
+                              }
+                              setSubjectInput("");
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            const slug = subjectInput.trim();
+                            if (!slug) return;
+                            const current: string[] = field.value || [];
+                            if (!current.includes(slug)) {
+                              field.onChange([...current, slug]);
+                            }
+                            setSubjectInput("");
+                          }}
+                        >
+                          Adicionar
+                        </Button>
+                      </div>
+
+                      {/* Lista dos selecionados, marcando os que não existem ainda */}
+                      {field.value && field.value.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-2 border-t mt-2">
+                          {field.value.map((slug: string) => {
+                            const subject = subjectsOptions.find(
+                              (s) => s.slug === slug
+                            );
+                            const exists = !!subject;
+
+                            return (
+                              <span
+                                key={slug}
+                                className={[
+                                  "flex items-center gap-1 rounded-full px-3 py-1 text-xs",
+                                  exists
+                                    ? "bg-primary/10"
+                                    : "bg-yellow-100 text-yellow-900 border border-yellow-400",
+                                ].join(" ")}
+                              >
+                                {subject?.name ?? slug}
+                                {!exists && (
+                                  <span className="text-[10px] uppercase">
+                                    (novo)
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  className="ml-1 text-[10px]"
+                                  onClick={() =>
+                                    field.onChange(
+                                      field.value.filter(
+                                        (s: string) => s !== slug
+                                      )
+                                    )
+                                  }
+                                >
+                                  ✕
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Skills como tags + validação com base na API */}
+            <FormField
+              control={form.control}
+              name="skills"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Skills (códigos)</FormLabel>
+                  <FormControl>
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Digite o código (ex: H01, H15) e pressione Enter para
+                        adicionar. Se a skill não existir no banco, será
+                        oferecida a opção de criá-la.
+                      </p>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Ex: H01"
+                          value={skillInput}
+                          onChange={(e) =>
+                            setSkillInput(e.target.value.toUpperCase())
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === ",") {
+                              e.preventDefault();
+                              const code = skillInput.trim().toUpperCase();
+                              if (!code) return;
+                              const current: string[] = field.value || [];
+                              if (!current.includes(code)) {
+                                field.onChange([...current, code]);
+                              }
+                              setSkillInput("");
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            const code = skillInput.trim().toUpperCase();
+                            if (!code) return;
+                            const current: string[] = field.value || [];
+                            if (!current.includes(code)) {
+                              field.onChange([...current, code]);
+                            }
+                            setSkillInput("");
+                          }}
+                        >
+                          Adicionar
+                        </Button>
+                      </div>
+
+                      {field.value && field.value.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {field.value.map((code: string) => {
+                            const skill = skillsOptions.find(
+                              (s) =>
+                                s.code?.toUpperCase() === code.toUpperCase()
+                            );
+
+                            const exists = !!skill;
+
+                            return (
+                              <span
+                                key={code}
+                                className={[
+                                  "flex items-center gap-1 rounded-full px-3 py-1 text-xs",
+                                  exists
+                                    ? "bg-secondary"
+                                    : "bg-yellow-100 text-yellow-900 border border-yellow-400",
+                                ].join(" ")}
+                              >
+                                {exists ? (
+                                  <>
+                                    {skill!.label}
+                                    {skill!.code && (
+                                      <span className="opacity-70 text-[10px]">
+                                        ({skill!.code})
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (
+                                  code
+                                )}
+
+                                {!exists && (
+                                  <span className="text-[10px] uppercase">
+                                    (nova)
+                                  </span>
+                                )}
+
+                                <button
+                                  type="button"
+                                  className="ml-1 text-[10px]"
+                                  onClick={() =>
+                                    field.onChange(
+                                      field.value.filter(
+                                        (c: string) => c !== code
+                                      )
+                                    )
+                                  }
+                                >
+                                  ✕
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -294,263 +716,301 @@ export function CreateQuestionForm({
             />
           </div>
 
-          {/* Subjects como multi-select de bloquinhos */}
-          <FormField
-            control={form.control}
-            name="subjects"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Subjects</FormLabel>
-                <FormControl>
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {SUBJECTS.map((subject) => {
-                        const selected = (field.value || []).includes(
-                          subject.slug
-                        );
-
-                        return (
-                          <button
-                            key={subject.slug}
-                            type="button"
-                            className={[
-                              "rounded-full border px-3 py-1 text-sm transition",
-                              selected
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "bg-muted text-muted-foreground hover:bg-accent",
-                            ].join(" ")}
-                            onClick={() => {
-                              const current: string[] = field.value || [];
-                              if (selected) {
-                                field.onChange(
-                                  current.filter(
-                                    (s: string) => s !== subject.slug
-                                  )
-                                );
-                              } else {
-                                field.onChange([...current, subject.slug]);
-                              }
-                            }}
-                          >
-                            {subject.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {field.value && field.value.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {field.value.map((slug: string) => {
-                          const subject = SUBJECTS.find(
-                            (s) => s.slug === slug
-                          );
-                          return (
-                            <span
-                              key={slug}
-                              className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs"
-                            >
-                              {subject?.name ?? slug}
-                              <button
-                                type="button"
-                                className="ml-1 text-xs"
-                                onClick={() =>
-                                  field.onChange(
-                                    field.value.filter(
-                                      (s: string) => s !== slug
-                                    )
-                                  )
-                                }
-                              >
-                                ✕
-                              </button>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="skills"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Skills (códigos, separados por vírgula)</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ex: H01,H15" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {/* Estímulo */}
-        <div className="space-y-4 rounded-md border p-4">
-          <h2 className="text-sm font-semibold">Estímulo</h2>
-
-          <FormField
-            control={form.control}
-            name="stimulusText"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Texto do estímulo (Markdown)</FormLabel>
-                <FormControl>
-                  <div className="border rounded-md overflow-hidden">
-                    <MdEditor
-                      style={{ height: 300 }}
-                      value={field.value || ""}
-                      renderHTML={(text) => mdParser.render(text)}
-                      onChange={({ text }) => field.onChange(text)}
-                      onImageUpload={handleMarkdownImageUpload}
-                      config={{
-                        view: {
-                          menu: true,
-                          md: true,
-                          html: true,
-                        },
-                        canView: {
-                          menu: true,
-                          md: true,
-                          html: true,
-                          both: true,
-                          fullScreen: true,
-                          hideMenu: true,
-                        },
-                      }}
-                    />
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="stimulusSourceRef"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Referência da fonte</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ex: ENEM 2023 - Prova Azul" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {/* MCQ */}
-        {!isDiscursive && (
+          {/* Estímulo */}
           <div className="space-y-4 rounded-md border p-4">
-            <h2 className="text-sm font-semibold">
-              Questão objetiva (MCQ) – {defaultOptionCount} alternativas
-            </h2>
+            <h2 className="text-sm font-semibold">Estímulo</h2>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="correctOptionKey"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Alternativa correta</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {["A", "B", "C", "D"].map((letter) => (
-                          <SelectItem key={letter} value={letter}>
-                            {letter}
-                          </SelectItem>
-                        ))}
-                        {hasOptionE && <SelectItem value="E">E</SelectItem>}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="stimulusText"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Texto do estímulo (Markdown)</FormLabel>
+                  <FormControl>
+                    <div className="border rounded-md overflow-hidden">
+                      <MdEditor
+                        style={{ height: 300 }}
+                        value={field.value || ""}
+                        renderHTML={(text) => mdParser.render(text)}
+                        onChange={({ text }) => field.onChange(text)}
+                        onImageUpload={handleMarkdownImageUpload}
+                        config={{
+                          view: { menu: true, md: true, html: true },
+                          canView: {
+                            menu: true,
+                            md: true,
+                            html: true,
+                            both: true,
+                            fullScreen: true,
+                            hideMenu: true,
+                          },
+                        }}
+                      />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-            <div className="flex flex-col gap-4">
-              <FormField
-                control={form.control}
-                name="optionA"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Alternativa A</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Texto da alternativa A" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="stimulusSourceRef"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Referência da fonte</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: ENEM 2023 - Prova Azul" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
-              <FormField
-                control={form.control}
-                name="optionB"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Alternativa B</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Texto da alternativa B" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          {/* MCQ com alternativas em Markdown */}
+          {!isDiscursive && (
+            <div className="space-y-4 rounded-md border p-4">
+              <h2 className="text-sm font-semibold">
+                Questão objetiva (MCQ) – {defaultOptionCount} alternativas
+              </h2>
 
-              <FormField
-                control={form.control}
-                name="optionC"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Alternativa C</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Texto da alternativa C" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="optionD"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Alternativa D</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Texto da alternativa D" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {hasOptionE && (
+              <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
-                  name="optionE"
+                  name="correctOptionKey"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Alternativa E</FormLabel>
+                      <FormLabel>Alternativa correta</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {["A", "B", "C", "D"].map((letter) => (
+                            <SelectItem key={letter} value={letter}>
+                              {letter}
+                            </SelectItem>
+                          ))}
+                          {hasOptionE && <SelectItem value="E">E</SelectItem>}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {/* A */}
+                <FormField
+                  control={form.control}
+                  name="optionA"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Alternativa A (Markdown)</FormLabel>
+                      <FormControl>
+                        <div className="border rounded-md overflow-hidden">
+                          <MdEditor
+                            style={{ height: 180 }}
+                            value={field.value || ""}
+                            renderHTML={(text) => mdParser.render(text)}
+                            onChange={({ text }) => field.onChange(text)}
+                            onImageUpload={handleMarkdownImageUpload}
+                            config={{
+                              view: { menu: true, md: true, html: true },
+                              canView: {
+                                menu: true,
+                                md: true,
+                                html: true,
+                                both: true,
+                                fullScreen: true,
+                                hideMenu: true,
+                              },
+                            }}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* B */}
+                <FormField
+                  control={form.control}
+                  name="optionB"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Alternativa B (Markdown)</FormLabel>
+                      <FormControl>
+                        <div className="border rounded-md overflow-hidden">
+                          <MdEditor
+                            style={{ height: 180 }}
+                            value={field.value || ""}
+                            renderHTML={(text) => mdParser.render(text)}
+                            onChange={({ text }) => field.onChange(text)}
+                            onImageUpload={handleMarkdownImageUpload}
+                            config={{
+                              view: { menu: true, md: true, html: true },
+                              canView: {
+                                menu: true,
+                                md: true,
+                                html: true,
+                                both: true,
+                                fullScreen: true,
+                                hideMenu: true,
+                              },
+                            }}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* C */}
+                <FormField
+                  control={form.control}
+                  name="optionC"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Alternativa C (Markdown)</FormLabel>
+                      <FormControl>
+                        <div className="border rounded-md overflow-hidden">
+                          <MdEditor
+                            style={{ height: 180 }}
+                            value={field.value || ""}
+                            renderHTML={(text) => mdParser.render(text)}
+                            onChange={({ text }) => field.onChange(text)}
+                            onImageUpload={handleMarkdownImageUpload}
+                            config={{
+                              view: { menu: true, md: true, html: true },
+                              canView: {
+                                menu: true,
+                                md: true,
+                                html: true,
+                                both: true,
+                                fullScreen: true,
+                                hideMenu: true,
+                              },
+                            }}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* D */}
+                <FormField
+                  control={form.control}
+                  name="optionD"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Alternativa D (Markdown)</FormLabel>
+                      <FormControl>
+                        <div className="border rounded-md overflow-hidden">
+                          <MdEditor
+                            style={{ height: 180 }}
+                            value={field.value || ""}
+                            renderHTML={(text) => mdParser.render(text)}
+                            onChange={({ text }) => field.onChange(text)}
+                            onImageUpload={handleMarkdownImageUpload}
+                            config={{
+                              view: { menu: true, md: true, html: true },
+                              canView: {
+                                menu: true,
+                                md: true,
+                                html: true,
+                                both: true,
+                                fullScreen: true,
+                                hideMenu: true,
+                              },
+                            }}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* E opcional */}
+                {hasOptionE && (
+                  <FormField
+                    control={form.control}
+                    name="optionE"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Alternativa E (Markdown)</FormLabel>
+                        <FormControl>
+                          <div className="border rounded-md overflow-hidden">
+                            <MdEditor
+                              style={{ height: 180 }}
+                              value={field.value || ""}
+                              renderHTML={(text) => mdParser.render(text)}
+                              onChange={({ text }) => field.onChange(text)}
+                              onImageUpload={handleMarkdownImageUpload}
+                              config={{
+                                view: { menu: true, md: true, html: true },
+                                canView: {
+                                  menu: true,
+                                  md: true,
+                                  html: true,
+                                  both: true,
+                                  fullScreen: true,
+                                  hideMenu: true,
+                                },
+                              }}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Discursiva */}
+          {isDiscursive && (
+            <div className="space-y-4 rounded-md border p-4">
+              <h2 className="text-sm font-semibold">Questão discursiva (FR)</h2>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="frMaxScore"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nota máxima (maxScore)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={0} step="0.5" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="frAnswerGuidanceHtml"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Orientação ao corretor (opcional)</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Texto da alternativa E"
+                          placeholder="Ex: considerar domínio da norma culta..."
                           {...field}
                         />
                       </FormControl>
@@ -558,40 +1018,18 @@ export function CreateQuestionForm({
                     </FormItem>
                   )}
                 />
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Discursiva */}
-        {isDiscursive && (
-          <div className="space-y-4 rounded-md border p-4">
-            <h2 className="text-sm font-semibold">Questão discursiva (FR)</h2>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="frMaxScore"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nota máxima (maxScore)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={0} step="0.5" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              </div>
 
               <FormField
                 control={form.control}
-                name="frAnswerGuidanceHtml"
+                name="frExpectedAnswerHtml"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Orientação ao corretor (opcional)</FormLabel>
+                    <FormLabel>Resposta modelo</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Ex: considerar domínio da norma culta..."
+                      <Textarea
+                        rows={4}
+                        placeholder="Cole aqui uma resposta exemplo / gabarito comentado..."
                         {...field}
                       />
                     </FormControl>
@@ -600,31 +1038,72 @@ export function CreateQuestionForm({
                 )}
               />
             </div>
+          )}
 
-            <FormField
-              control={form.control}
-              name="frExpectedAnswerHtml"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Resposta modelo</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      rows={4}
-                      placeholder="Cole aqui uma resposta exemplo / gabarito comentado..."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <Button type="submit" disabled={isSubmitting || isUploadingImage}>
+            {isSubmitting ? "Criando..." : "Criar questão"}
+          </Button>
+        </form>
+      </Form>
+
+      {/* Modal quando existir subject/skill não cadastrado no BD */}
+      <Dialog open={isTaxonomyModalOpen} onOpenChange={setIsTaxonomyModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Subjects/skills não encontrados
+            </DialogTitle>
+            <DialogDescription>
+              Alguns subjects ou skills informados não existem no banco de
+              dados. Deseja criá-los agora e continuar?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 text-sm">
+            {taxonomyCheckResult?.missingSubjects?.length ? (
+              <div>
+                <p className="font-semibold">Subjects inexistentes:</p>
+                <ul className="list-disc list-inside">
+                  {taxonomyCheckResult.missingSubjects.map((s) => (
+                    <li key={s}>{s}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {taxonomyCheckResult?.missingSkills?.length ? (
+              <div>
+                <p className="font-semibold">Skills inexistentes:</p>
+                <ul className="list-disc list-inside">
+                  {taxonomyCheckResult.missingSkills.map((s) => (
+                    <li key={s}>{s}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
-        )}
 
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Criando..." : "Criar questão"}
-        </Button>
-      </form>
-    </Form>
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsTaxonomyModalOpen(false);
+                setTaxonomyCheckResult(null);
+                setPendingValues(null);
+              }}
+            >
+              Voltar e editar
+            </Button>
+            <Button
+              onClick={handleConfirmCreateTaxonomies}
+              disabled={isCreatingTaxonomies}
+            >
+              {isCreatingTaxonomies ? "Criando..." : "Criar e continuar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

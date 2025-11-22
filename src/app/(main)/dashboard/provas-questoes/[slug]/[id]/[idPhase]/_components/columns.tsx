@@ -27,35 +27,40 @@ import { DataTableColumnHeader } from "../../../../../../../../components/data-t
 import { toast } from "sonner";
 import { sectionSchema } from "./schema";
 
+// cada linha da tabela é um item do array "items" do response
+type Question = z.infer<typeof sectionSchema>["items"][number];
+
 async function handleDelete(itemId: number) {
   try {
-    const res = await fetch(`/api/exam-phase/${itemId}`, {
+    const res = await fetch(`/api/question/${itemId}`, {
       method: "DELETE",
     });
 
-    if (!res.ok) throw new Error("Erro ao deletar o item");
+    if (!res.ok) throw new Error("Erro ao deletar a questão");
 
-    toast.success("Item deletado com sucesso!");
-    // Opcional: atualizar página ou tabela
+    toast.success("Questão deletada com sucesso!");
+    // Se quiser algo mais elegante depois pode trocar por mutate/SWR, etc.
     window.location.reload();
   } catch (err) {
     console.error(err);
-    toast.error("Falha ao deletar o item");
+    toast.error("Falha ao deletar a questão");
   }
 }
 
-async function handleEdit(id: number, data: { name: any }) {
+async function handleEdit(id: number, data: { numberLabel: string }) {
   try {
-    const res = await fetch(`/api/exam-board/${id}`, {
+    const res = await fetch(`/api/question/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
       headers: { "Content-Type": "application/json" },
     });
+
     if (!res.ok) {
       console.log(await res.text());
       throw new Error("Erro ao salvar edição");
     }
-    toast.success("Item editado com sucesso!");
+
+    toast.success("Questão editada com sucesso!");
     window.location.reload();
   } catch (err) {
     console.error(err);
@@ -65,45 +70,33 @@ async function handleEdit(id: number, data: { name: any }) {
 
 export const getdashboardColumns = (
   slug: string,
-  id: string
-): ColumnDef<z.infer<typeof sectionSchema>>[] => [
+  id: string,
+  idPhase: string
+): ColumnDef<Question>[] => [
+  // Número da questão com link
   {
-    accessorKey: "phaseNumber",
+    accessorKey: "numberLabel",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Fase" />
+      <DataTableColumnHeader column={column} title="Questão" />
     ),
     cell: ({ row }) => {
       return (
         <a
           className="underline-offset-2 hover:underline"
-          href={`/dashboard/provas-questoes/${slug}/${id}/${row.original.id}`}
+          href={`/dashboard/provas-questoes/${slug}/${id}/${idPhase}/${row.original.id}`}
         >
-          <Label>Fase: {row.original.phaseNumber}</Label>
+          <Label>Q{row.original.numberLabel}</Label>
         </a>
       );
     },
     enableSorting: false,
   },
 
+  // Tipo: objetiva/discursiva
   {
-    accessorKey: "dayNumber ",
+    accessorKey: "isDiscursive",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Dia" />
-    ),
-    cell: ({ row }) => {
-      return (
-        <Label htmlFor={`${row.original.id}-name`}>
-          Dia: {row.original.dayNumber}
-        </Label>
-      );
-    },
-    enableSorting: false,
-  },
-
-  {
-    accessorKey: "type",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Edição" />
+      <DataTableColumnHeader column={column} title="Tipo" />
     ),
     cell: ({ row }) => (
       <div className="w-32">
@@ -115,30 +108,61 @@ export const getdashboardColumns = (
     enableSorting: false,
   },
 
+  // Dificuldade
   {
-    accessorKey: "subjectBlock",
+    accessorKey: "difficulty",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Edição" />
+      <DataTableColumnHeader column={column} title="Dificuldade" />
     ),
     cell: ({ row }) => (
       <div className="w-32">
-        <Label>{row.original.subjectBlock}</Label>
+        <Label>{row.original.difficulty ?? "-"}</Label>
       </div>
     ),
     enableSorting: false,
   },
+
+  // Status
   {
-    accessorKey: "questionCountExpected",
+    accessorKey: "status",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Quantidade de questões" />
+      <DataTableColumnHeader column={column} title="Status" />
     ),
     cell: ({ row }) => (
       <div className="w-32">
-        <Label>{row.original.questionCountExpected}</Label>
+        <Badge variant="secondary" className="px-1.5">
+          {row.original.status}
+        </Badge>
       </div>
     ),
     enableSorting: false,
   },
+
+  // Criada em
+  {
+    accessorKey: "createdAt",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Criada em" />
+    ),
+    cell: ({ row }) => {
+      const date = new Date(row.original.createdAt);
+      const formatted = isNaN(date.getTime())
+        ? "-"
+        : date.toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          });
+      return (
+        <div className="w-32">
+          <Label>{formatted}</Label>
+        </div>
+      );
+    },
+    enableSorting: false,
+  },
+
+  // Ações
   {
     accessorKey: "actions",
     header: () => <div className="text-right pr-4">Ações</div>,
@@ -146,7 +170,6 @@ export const getdashboardColumns = (
       const [isDialogOpen, setIsDialogOpen] = React.useState(false);
       const [isEditOpen, setIsEditOpen] = React.useState(false);
 
-      // dados atuais
       const item = row.original;
 
       return (
@@ -160,13 +183,14 @@ export const getdashboardColumns = (
             Editar
           </Button>
 
-          {/* Modal de edição */}
+          {/* Modal de edição do número da questão */}
           <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Editar Edição: {item.phaseNumber}</DialogTitle>
+                <DialogTitle>Editar questão {item.numberLabel}</DialogTitle>
                 <DialogDescription>
-                  Faça alterações nos dados da edição e salve quando terminar.
+                  Altere o número/identificador da questão e salve quando
+                  terminar.
                 </DialogDescription>
               </DialogHeader>
 
@@ -175,20 +199,23 @@ export const getdashboardColumns = (
                   e.preventDefault();
 
                   const formData = new FormData(e.currentTarget);
+                  const numberLabel = String(formData.get("numberLabel") || "")
+                    .toString()
+                    .trim();
 
-                  await handleEdit(item.id, {
-                    name: formData.get("name"),
-                  });
+                  await handleEdit(item.id, { numberLabel });
 
                   setIsEditOpen(false);
                 }}
                 className="space-y-4"
               >
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium">Ano</label>
+                  <label className="text-sm font-medium">
+                    Número da questão
+                  </label>
                   <input
-                    name="name"
-                    defaultValue={item.phaseNumber}
+                    name="numberLabel"
+                    defaultValue={item.numberLabel}
                     className="border rounded-md px-2 py-1"
                     required
                   />
@@ -227,11 +254,11 @@ export const getdashboardColumns = (
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>
-                  Tem certeza que deseja deletar esta fase?
+                  Tem certeza que deseja deletar esta questão?
                 </AlertDialogTitle>
                 <AlertDialogDescription>
                   Esta ação não pode ser desfeita. Isso irá deletar
-                  permanentemente a fase.
+                  permanentemente a questão e seus dados associados.
                 </AlertDialogDescription>
               </AlertDialogHeader>
 
