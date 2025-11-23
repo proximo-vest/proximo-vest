@@ -2,6 +2,9 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getUserSubscription } from "@/server/subscription";
+import { getPlanLimits, isActiveSubscription } from "@/server/subscription";
+
 import {
   AuthProfile,
   RoleName,
@@ -161,6 +164,9 @@ export async function requireAPIAuth(opts?: {
 // REQUIRE PAGE AUTH (Server only)
 // ============================================================================
 
+// ============================================================================
+// REQUIRE PAGE AUTH (Server only) – versão com Assinatura + Limites
+// ============================================================================
 export async function requirePageAuth(opts?: {
   role?: RoleName | RoleName[];
   perm?: PermissionKey | PermissionKey[];
@@ -213,5 +219,16 @@ export async function requirePageAuth(opts?: {
     return redirect(onForbiddenRedirect);
   }
 
-  return { session, profile };
+  // -------- ASSINATURA --------
+  const subscription = await getUserSubscription(session.user.id as string);
+  const subscriptionActive = isActiveSubscription(subscription);
+  const limits = getPlanLimits(subscription?.planKey ?? null);
+
+  return {
+    session,
+    profile,
+    subscription,
+    subscriptionActive,
+    limits,
+  };
 }

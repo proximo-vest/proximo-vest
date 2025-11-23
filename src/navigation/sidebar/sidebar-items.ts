@@ -66,9 +66,30 @@ export const sidebarItems: NavGroup[] = [
         icon: Lock,
         comingSoon: false,
       },
-            {
+      {
         title: "Permissions",
         url: "/dashboard/permissions",
+        icon: Fingerprint,
+        comingSoon: false,
+        isNew: true,
+      },
+      {
+        title: "Planos",
+        url: "/dashboard/planos",
+        icon: Fingerprint,
+        comingSoon: false,
+        isNew: true,
+      },
+      {
+        title: "Assinaturas",
+        url: "/dashboard/subscriptions",
+        icon: Fingerprint,
+        comingSoon: false,
+        isNew: true,
+      },
+      {
+        title: "Cupoms",
+        url: "/dashboard/coupons",
         icon: Fingerprint,
         comingSoon: false,
         isNew: true,
@@ -94,8 +115,6 @@ export const sidebarItems: NavGroup[] = [
         url: "/dashboard/finance",
         icon: Banknote,
       },
-
     ],
   },
- 
 ];
