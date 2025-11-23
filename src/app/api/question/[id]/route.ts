@@ -28,11 +28,29 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 }
 
 const OptionKey = z.enum(["A", "B", "C", "D", "E"]);
+
 const PatchSchema = z.object({
+  // campos básicos da questão
   numberLabel: z.string().optional(),
   isDiscursive: z.boolean().optional(),
+  status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
   sourcePageStart: z.number().optional(),
   sourcePageEnd: z.number().optional(),
+
+  // estímulo (mesma estrutura que você manda no front)
+  stimulus: z
+    .object({
+      contentHtml: z.string(),
+      contentText: z.string().nullable().optional(),
+      sourceRef: z.string().nullable().optional(),
+    })
+    .optional(),
+
+  // taxonomias (slugs/códigos)
+  subjects: z.array(z.string()).optional(), // slugs
+  skills: z.array(z.string()).optional(),   // códigos (H01 etc.)
+
+  // MCQ
   mcq: z
     .object({
       optionCount: z.number().int().min(4).max(5).optional(),
@@ -49,10 +67,13 @@ const PatchSchema = z.object({
         .optional(),
     })
     .optional(),
+
+  // Discursiva
   fr: z
     .object({
       maxScore: z.number().optional(),
       answerGuidanceHtml: z.string().optional(),
+      // se quiser, pode estender pra expectedAnswers também
     })
     .optional(),
 });
@@ -67,46 +88,70 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (!parsed.success) return badRequest(parsed.error.message);
     const input = parsed.data;
 
-    // estado atual para decidir MCQ x FR
+    // pega o estado atual (pra ver se é discursiva/objetiva etc)
     const current = await prisma.question.findUnique({
       where: { id },
       include: { mcq: true, fr: true },
     });
     if (!current) return notFound("Question not found");
 
-    const data: any = { ...input };
-    delete data.mcq;
-    delete data.fr;
+    // separa os pedaços que vão pro question e o resto
+    const {
+      mcq,
+      fr,
+      subjects,
+      skills,
+      stimulus,
+      ...questionData
+    } = input;
 
-    // Atualiza cabeçalho da questão
+    // monta o data básico da questão
+    const questionUpdateData: any = {
+      ...questionData, // examPhaseId, numberLabel, isDiscursive, status, sourcePageStart/End
+    };
+
+    // se veio estímulo no PATCH, atualiza o relacionado
+    if (stimulus) {
+      questionUpdateData.stimulus = {
+        update: {
+          contentHtml: stimulus.contentHtml,
+          contentText: stimulus.contentText ?? null,
+          sourceRef: stimulus.sourceRef ?? null,
+        },
+      };
+    }
+
+    // ATENÇÃO: subjects/skills ainda não estão sendo tratados aqui.
+    // Se quiser realmente editar as taxonomias via PATCH, dá pra adicionar
+    // lógica de questionSubject/questionSkill parecido com seu endpoint de create.
+
+    // atualiza cabeçalho + estímulo
     const updated = await prisma.question.update({
       where: { id },
-      data,
+      data: questionUpdateData,
     });
 
-    // Atualização dos blocos (MCQ/FR)
-    // Obs: se quiser atomicidade total, envolva as operações seguintes numa $transaction.
-    if (input.mcq && !updated.isDiscursive) {
+    // -------- MCQ --------
+    if (mcq && !updated.isDiscursive) {
       await prisma.mcqItem.upsert({
         where: { questionId: id },
         update: {
-          optionCount: input.mcq.optionCount ?? undefined,
-          shuffleOptions: input.mcq.shuffleOptions ?? undefined,
-          correctOptionKey: input.mcq.correctOptionKey ?? undefined,
+          optionCount: mcq.optionCount ?? undefined,
+          shuffleOptions: mcq.shuffleOptions ?? undefined,
+          correctOptionKey: mcq.correctOptionKey ?? undefined,
         },
         create: {
           questionId: id,
-          optionCount: input.mcq.optionCount ?? 5,
-          shuffleOptions: input.mcq.shuffleOptions ?? true,
-          correctOptionKey: input.mcq.correctOptionKey ?? "A",
+          optionCount: mcq.optionCount ?? 5,
+          shuffleOptions: mcq.shuffleOptions ?? true,
+          correctOptionKey: mcq.correctOptionKey ?? "A",
         },
       });
 
-      if (input.mcq.options?.length) {
-        // sobrescreve opções
+      if (mcq.options?.length) {
         await prisma.mcqOption.deleteMany({ where: { questionId: id } });
         await prisma.mcqOption.createMany({
-          data: input.mcq.options.map((o) => ({
+          data: mcq.options.map((o) => ({
             questionId: id,
             label: o.label,
             textHtml: o.textHtml,
@@ -116,21 +161,23 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       }
     }
 
-    if (input.fr && updated.isDiscursive) {
+    // -------- FR --------
+    if (fr && updated.isDiscursive) {
       await prisma.frItem.upsert({
         where: { questionId: id },
         update: {
-          maxScore: (input.fr.maxScore as any) ?? undefined,
-          answerGuidanceHtml: input.fr.answerGuidanceHtml ?? undefined,
+          maxScore: (fr.maxScore as any) ?? undefined,
+          answerGuidanceHtml: fr.answerGuidanceHtml ?? undefined,
         },
         create: {
           questionId: id,
-          maxScore: (input.fr.maxScore as any) ?? undefined,
-          answerGuidanceHtml: input.fr.answerGuidanceHtml ?? undefined,
+          maxScore: (fr.maxScore as any) ?? undefined,
+          answerGuidanceHtml: fr.answerGuidanceHtml ?? undefined,
         },
       });
     }
 
+    // volta a questão completa (igual ao GET)
     const full = await prisma.question.findUnique({
       where: { id },
       include: {

@@ -104,9 +104,11 @@ export function AccountSwitcher({
             <BadgeCheck />
             Minha conta
           </DropdownMenuItem>
-          <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+            router.push("/dashboard/assinatura")
+          }}>
             <CreditCard />
-            Billing
+            Assinatura
           </DropdownMenuItem>
           <DropdownMenuItem>
             <Bell />

@@ -2,14 +2,6 @@ import { ColumnDef } from "@tanstack/react-table";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogHeader,
@@ -26,6 +18,7 @@ import React from "react";
 import { DataTableColumnHeader } from "../../../../../../../../components/data-table/data-table-column-header";
 import { toast } from "sonner";
 import { sectionSchema } from "./schema";
+import Link from "next/link";
 
 // cada linha da tabela é um item do array "items" do response
 type Question = z.infer<typeof sectionSchema>["items"][number];
@@ -47,27 +40,6 @@ async function handleDelete(itemId: number) {
   }
 }
 
-async function handleEdit(id: number, data: { numberLabel: string }) {
-  try {
-    const res = await fetch(`/api/question/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(data),
-      headers: { "Content-Type": "application/json" },
-    });
-
-    if (!res.ok) {
-      console.log(await res.text());
-      throw new Error("Erro ao salvar edição");
-    }
-
-    toast.success("Questão editada com sucesso!");
-    window.location.reload();
-  } catch (err) {
-    console.error(err);
-    toast.error("Erro ao salvar a edição");
-  }
-}
-
 export const getdashboardColumns = (
   slug: string,
   id: string,
@@ -83,7 +55,7 @@ export const getdashboardColumns = (
       return (
         <a
           className="underline-offset-2 hover:underline"
-          href={`/dashboard/provas-questoes/${slug}/${id}/${idPhase}/${row.original.id}`}
+          href={`/dashboard/provas-questoes/${slug}/${id}/${idPhase}/${row.original.id}/preview`}
         >
           <Label>Q{row.original.numberLabel}</Label>
         </a>
@@ -167,6 +139,7 @@ export const getdashboardColumns = (
     accessorKey: "actions",
     header: () => <div className="text-right pr-4">Ações</div>,
     cell: ({ row }) => {
+  
       const [isDialogOpen, setIsDialogOpen] = React.useState(false);
       const [isEditOpen, setIsEditOpen] = React.useState(false);
 
@@ -175,71 +148,19 @@ export const getdashboardColumns = (
       return (
         <div className="flex justify-end items-center gap-2 pr-4">
           {/* Botão que abre o modal de edição */}
+            <Link
+          href={`/dashboard/provas-questoes/${slug}/${id}/${idPhase}/${item.id}/edit`}
+        >
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setIsEditOpen(true)}
+       
           >
             Editar
           </Button>
-
-          {/* Modal de edição do número da questão */}
-          <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Editar questão {item.numberLabel}</DialogTitle>
-                <DialogDescription>
-                  Altere o número/identificador da questão e salve quando
-                  terminar.
-                </DialogDescription>
-              </DialogHeader>
-
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-
-                  const formData = new FormData(e.currentTarget);
-                  const numberLabel = String(formData.get("numberLabel") || "")
-                    .toString()
-                    .trim();
-
-                  await handleEdit(item.id, { numberLabel });
-
-                  setIsEditOpen(false);
-                }}
-                className="space-y-4"
-              >
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium">
-                    Número da questão
-                  </label>
-                  <input
-                    name="numberLabel"
-                    defaultValue={item.numberLabel}
-                    className="border rounded-md px-2 py-1"
-                    required
-                  />
-                </div>
-
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsEditOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    Salvar alterações
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-
+ </Link>
+       
+     
           {/* Botão de deletar */}
           <Button
             variant="destructive"
