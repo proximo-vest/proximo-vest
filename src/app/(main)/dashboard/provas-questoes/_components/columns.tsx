@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { ColumnDef } from "@tanstack/react-table";
 import { z } from "zod";
@@ -12,7 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-
+import Link from "next/link";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -88,7 +88,10 @@ export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
 
     cell: ({ row }) => {
       const canDelete = useCan({
-        role: ["Admin"],
+        perm: "exam.delete",
+      });
+      const canEdit = useCan({
+        perm: "exam.edit",
       });
 
       const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -98,7 +101,17 @@ export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
 
       return (
         <div className="flex justify-end items-center gap-2 pr-4">
-          {/* --- EDITAR --- */}
+          <Link href={`/dashboard/provas-questoes/${item.slug}`}>
+             <Button
+            variant="outline"
+            size="sm"
+        
+          >
+            Ver
+          </Button>
+          </Link>
+          
+               {canEdit && (
           <Button
             variant="outline"
             size="sm"
@@ -106,6 +119,7 @@ export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
           >
             Editar
           </Button>
+        )}
 
           {/* Modal de edição */}
           <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>

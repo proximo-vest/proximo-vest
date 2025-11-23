@@ -34,19 +34,15 @@ import {
 } from "@/components/ui/table";
 
 import { dashboardColumns } from "./columns";
-import { sectionSchema } from "./schema";
+import { permissionsCreateSchema } from "./schema";
 
-type Section = z.infer<typeof sectionSchema>;
+type Section = z.infer<typeof permissionsCreateSchema>;
 
 type DataTableProps = {
   data: Section[];
 };
-import { useCan } from "@/hooks/use-can";
-export function DataTable({ data }: DataTableProps) {
-  const canCreate = useCan({
-    perm: "exam.create",
-  });
 
+export function DataTable({ data }: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -98,17 +94,16 @@ export function DataTable({ data }: DataTableProps) {
       className="w-full flex-col justify-start gap-6"
     >
       <div className="flex items-center justify-between">
-        {canCreate && (
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <a href="/dashboard/provas-questoes/createBoard">
-                <Plus className="mr-1 h-4 w-4" />
-                <span className="hidden lg:inline">Criar Prova</span>
-              </a>
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <a href="/dashboard/permissions/createPermissions">
+              <Plus className="mr-1 h-4 w-4" />
+              <span className="hidden lg:inline">Criar Permissão</span>
+            </a>
+          </Button>
+        </div>
       </div>
+
       <TabsContent
         value="outline"
         className="relative flex flex-col gap-4 overflow-auto"
