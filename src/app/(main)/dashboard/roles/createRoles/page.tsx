@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 
 export default async function Page() {
   await requirePageAuth({
-    role: "Admin", // OU perm: "exam.read"
     emailVerified: true,
     blockSuspended: true,
     blockDeleted: true,

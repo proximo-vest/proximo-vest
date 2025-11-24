@@ -8,7 +8,6 @@ interface PageProps {
 
 export default async function Provas({ params }: PageProps) {
   await requirePageAuth({
-    role: "Admin", // OU perm: "exam.read"
     emailVerified: true,
     blockSuspended: true,
     blockDeleted: true,

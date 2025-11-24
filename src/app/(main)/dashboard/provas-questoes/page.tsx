@@ -4,7 +4,6 @@ import { requirePageAuth } from "@/utils/access";
 
 export default async function Provas() {
   await requirePageAuth({
-    role: ["Editor", "Admin"], // OU perm: "exam.read"
     emailVerified: true,
     blockSuspended: true,
     blockDeleted: true,
