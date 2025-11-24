@@ -9,7 +9,6 @@ export default async function RolePermissionsPage({
   params: { roleId: string };
 }) {
   await requirePageAuth({
-    role: "Admin",
     emailVerified: true,
     blockSuspended: true,
     blockDeleted: true,
