@@ -26,7 +26,6 @@ export default async function AssinaturaPage() {
 
   // Busca planos via API (sem Prisma direto na página)
   const res = await fetch(
-    // se quiser filtrar por tipo, use: `/api/plans/available?type=${currentPlanType}`
     `${process.env.API_URL}/plans/available`,
     {
       cache: "no-store",

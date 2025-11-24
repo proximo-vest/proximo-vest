@@ -1,11 +1,18 @@
+// Define database connection via the `DATABASE_URL` env var
+datasource db {
+  provider = "postgresql"
+  // Connection URLs are no longer supported in schema files (Prisma v7+).
+  // Move your connection URL for Migrate to prisma.config.ts and pass either
+  // `adapter` for a direct database connection or `accelerateUrl` for Accelerate
+  // to the PrismaClient constructor. See:
+  // https://pris.ly/d/config-datasource
+  // https://pris.ly/d/prisma7-client-config
+}
+
+// Define custom output path for generated Prisma Client
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ========== Enums ==========
@@ -405,7 +412,6 @@ model UserPermission {
   @@id([userId, permissionId])
 }
 
-
 model Coupon {
   id            String       @id @default(cuid())
   code          String       @unique
@@ -419,37 +425,36 @@ model Coupon {
   updatedAt     DateTime     @updatedAt
 }
 
-
 model Plan {
-  id           String   @id @default(cuid())
-  key          String   @unique              // ex: "STUDENT_PREMIUM"
-  label        String                        // ex: "Plano Premium (Aluno)"
-  description  String
-  type         String                        // "student" | "teacher" | "school"
-  monthlyPrice Float?                        // null = grátis
-  highlight    Boolean  @default(false)
-  isActive     Boolean  @default(true)
-  stripePriceId String? 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String   @id @default(cuid())
+  key           String   @unique // ex: "STUDENT_PREMIUM"
+  label         String // ex: "Plano Premium (Aluno)"
+  description   String
+  type          String // "student" | "teacher" | "school"
+  monthlyPrice  Float? // null = grátis
+  highlight     Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  stripePriceId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   subscriptions Subscription[]
 }
 
 model Subscription {
-  id                   String   @id @default(cuid())
-  userId               String   @unique
-  planKey              String
-  plan                 Plan     @relation(fields: [planKey], references: [key])
+  id      String @id @default(cuid())
+  userId  String @unique
+  planKey String
+  plan    Plan   @relation(fields: [planKey], references: [key])
 
-  status               String   // "ACTIVE" | "EXPIRED" | "CANCELED"
-  expiresAt            DateTime?
+  status    String // "ACTIVE" | "EXPIRED" | "CANCELED"
+  expiresAt DateTime?
 
   stripeCustomerId     String?
   stripeSubscriptionId String?
 
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id])
 }
