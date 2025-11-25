@@ -2,6 +2,7 @@ import { prisma } from "../../../../lib/prisma"
 import { NextRequest } from "next/server"
 import { z } from "zod"
 import { json, tryCatch } from "../../_utils"
+import { requireAPIAuth } from "@/utils/access"
 
 const Schema = z.object({
   examPhaseId: z.coerce.number().int().optional(),
@@ -28,6 +29,12 @@ const Schema = z.object({
 })
 
 export async function GET(req: NextRequest) {
+    await requireAPIAuth({
+      emailVerified: true,
+      blockSuspended: true,
+      blockDeleted: true,
+  
+    });
   return tryCatch(async () => {
     const { searchParams } = new URL(req.url)
 

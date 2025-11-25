@@ -2,6 +2,7 @@ import { prisma } from "../../../../lib/prisma";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { json, readBody, tryCatch, badRequest } from "../../_utils";
+import { requireAPIAuth } from "@/utils/access";
 
 const Schema = z.object({
   questionId: z.number().int(),
@@ -10,6 +11,12 @@ const Schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+    await requireAPIAuth({
+      perm: "rubric.manage",
+       emailVerified: true,
+       blockSuspended: true,
+       blockDeleted: true,
+     });
   return tryCatch(async () => {
     const parsed = Schema.safeParse(await readBody(req));
     if (!parsed.success) return badRequest(parsed.error.message);

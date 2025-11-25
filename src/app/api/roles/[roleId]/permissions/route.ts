@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { requireAPIAuth } from "@/utils/access";
 
 const bodySchema = z.object({
   permissionIds: z.array(z.string()).min(0),
@@ -11,6 +12,7 @@ type RouteContext = {
 };
 
 export async function GET(req: NextRequest, context: RouteContext) {
+  await requireAPIAuth({ perm: "role.manage", emailVerified: true, blockSuspended: true, blockDeleted: true });
   try {
     const { roleId } = await context.params;
 
@@ -58,6 +60,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 }
 
 export async function PUT(req: NextRequest, context: RouteContext) {
+  await requireAPIAuth({ perm: "role.manage", emailVerified: true, blockSuspended: true, blockDeleted: true });
   try {
     const { roleId } = await context.params;
 

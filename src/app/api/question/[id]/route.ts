@@ -3,10 +3,17 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { json, readBody, tryCatch, notFound, badRequest } from "../../_utils";
 
+import { requireAPIAuth } from "@/utils/access";
+
 type Params = { id: string };
 type Ctx = { params: Promise<Params> };
 
 export async function GET(_req: NextRequest, ctx: Ctx) {
+  await requireAPIAuth({
+    emailVerified: true,
+    blockSuspended: true,
+    blockDeleted: true,
+  });
   return tryCatch(async () => {
     const { id: idStr } = await ctx.params;
     const id = Number(idStr);
@@ -48,7 +55,7 @@ const PatchSchema = z.object({
 
   // taxonomias (slugs/códigos)
   subjects: z.array(z.string()).optional(), // slugs
-  skills: z.array(z.string()).optional(),   // códigos (H01 etc.)
+  skills: z.array(z.string()).optional(), // códigos (H01 etc.)
 
   // MCQ
   mcq: z
@@ -79,6 +86,12 @@ const PatchSchema = z.object({
 });
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
+  await requireAPIAuth({
+    perm: "question.update",
+    emailVerified: true,
+    blockSuspended: true,
+    blockDeleted: true,
+  });
   return tryCatch(async () => {
     const { id: idStr } = await ctx.params;
     const id = Number(idStr);
@@ -96,14 +109,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (!current) return notFound("Question not found");
 
     // separa os pedaços que vão pro question e o resto
-    const {
-      mcq,
-      fr,
-      subjects,
-      skills,
-      stimulus,
-      ...questionData
-    } = input;
+    const { mcq, fr, subjects, skills, stimulus, ...questionData } = input;
 
     // monta o data básico da questão
     const questionUpdateData: any = {
@@ -194,6 +200,12 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 }
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
+  await requireAPIAuth({
+    perm: "question.delete",
+    emailVerified: true,
+    blockSuspended: true,
+    blockDeleted: true,
+  });
   return tryCatch(async () => {
     const { id: idStr } = await ctx.params;
     const id = Number(idStr);
