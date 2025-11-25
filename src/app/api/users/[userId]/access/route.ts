@@ -8,8 +8,9 @@ type RouteContext = {
 };
 
 export async function GET(
+  
   _req: Request, context: RouteContext) {
-  await requireAPIAuth({ role: "Admin" });
+  await requireAPIAuth({ perm: "user.read", emailVerified: true, blockSuspended: true, blockDeleted: true });
 
   const { userId } = await context.params;
 

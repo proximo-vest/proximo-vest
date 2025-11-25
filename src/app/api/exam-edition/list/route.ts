@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "../../../../lib/prisma"
 import { z } from "zod"
+import { requireAPIAuth } from "@/utils/access"
 
 const Schema = z.object({
   examBoardId: z.coerce.number().int().optional(), // coerce permite receber "1" como número
@@ -8,6 +9,12 @@ const Schema = z.object({
 })
 
 export async function GET(req: NextRequest) {
+  await requireAPIAuth({
+    emailVerified: true,
+    blockSuspended: true,
+    blockDeleted: true,
+
+  });
   try {
     const { searchParams } = new URL(req.url)
     const examBoardId = searchParams.get("examBoardId")

@@ -1,0 +1,24 @@
+import { CreatePermissionForm } from "./_components/CreatePermissionForm";
+
+import { requirePageAuth } from "@/utils/access";
+
+import { Label } from "@/components/ui/label";
+
+export default async function Page() {
+  await requirePageAuth({
+    perm: ["perm.manage"],
+    emailVerified: true,
+    blockSuspended: true,
+    blockDeleted: true,
+    onForbiddenRedirect: "/dashboard", // opcional
+  });
+
+  return (
+    <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <Label>Criar Nova Permissão</Label>
+      <CreatePermissionForm />
+    </div>
+  );
+}
+/*
+ */

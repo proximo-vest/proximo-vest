@@ -18,6 +18,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import type { RoleName, PermissionKey } from "@/utils/access-core";
+
 export interface NavSubItem {
   title: string;
   url: string;
@@ -25,6 +27,9 @@ export interface NavSubItem {
   comingSoon?: boolean;
   newTab?: boolean;
   isNew?: boolean;
+
+  requiredRoles?: RoleName[];
+  requiredPerms?: PermissionKey[];
 }
 
 export interface NavMainItem {
@@ -35,12 +40,18 @@ export interface NavMainItem {
   comingSoon?: boolean;
   newTab?: boolean;
   isNew?: boolean;
+
+  requiredRoles?: RoleName[];
+  requiredPerms?: PermissionKey[];
 }
 
 export interface NavGroup {
   id: number;
   label?: string;
   items: NavMainItem[];
+
+  requiredRoles?: RoleName[];
+  requiredPerms?: PermissionKey[];
 }
 
 export const sidebarItems: NavGroup[] = [
@@ -50,49 +61,52 @@ export const sidebarItems: NavGroup[] = [
     items: [
       {
         title: "Provas",
-        url: "/dashboard/provas-questoes",
+        url: "/dashboard/admin/provas-questoes",
         icon: SquareArrowUpRight,
         comingSoon: false,
+        requiredPerms: ["examBoard.manage"],
       },
       {
         title: "Users",
-        url: "/dashboard/users",
+        url: "/dashboard/admin/users",
         icon: Users,
         comingSoon: false,
+        requiredPerms: ["user.create", "user.delete", "user.update"],
       },
       {
         title: "Roles",
-        url: "/dashboard/roles",
+        url: "/dashboard/admin/roles",
         icon: Lock,
         comingSoon: false,
+        requiredPerms: ["role.manage"],
       },
       {
         title: "Permissions",
-        url: "/dashboard/permissions",
+        url: "/dashboard/admin/permissions",
         icon: Fingerprint,
         comingSoon: false,
-        isNew: true,
+        requiredPerms: ["permission.manage"],
       },
       {
         title: "Planos",
-        url: "/dashboard/planos",
+        url: "/dashboard/admin/planos",
         icon: Fingerprint,
         comingSoon: false,
-        isNew: true,
+        requiredPerms: ["plan.manage"],
       },
       {
         title: "Assinaturas",
-        url: "/dashboard/subscriptions",
+        url: "/dashboard/admin/subscriptions",
         icon: Fingerprint,
         comingSoon: false,
-        isNew: true,
+        requiredPerms: ["subscription.manage"],
       },
       {
         title: "Cupoms",
-        url: "/dashboard/coupons",
+        url: "/dashboard/admin/coupons",
         icon: Fingerprint,
         comingSoon: false,
-        isNew: true,
+        requiredPerms: ["coupon.manage"],
       },
     ],
   },

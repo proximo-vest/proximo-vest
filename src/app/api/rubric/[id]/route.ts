@@ -2,6 +2,7 @@ import { prisma } from "../../../../lib/prisma";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { json, readBody, tryCatch, badRequest, notFound } from "../../_utils";
+import { requireAPIAuth } from "@/utils/access";
 
 type Params = { id: string };
 type Ctx = { params: Promise<Params> };
@@ -12,6 +13,12 @@ const PatchSchema = z.object({
 });
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
+    await requireAPIAuth({
+      perm: "rubric.manage",
+       emailVerified: true,
+       blockSuspended: true,
+       blockDeleted: true,
+     });
   return tryCatch(async () => {
     const { id: idStr } = await ctx.params;
     const id = Number(idStr);
@@ -33,6 +40,12 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 }
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
+    await requireAPIAuth({
+      perm: "rubric.manage",
+       emailVerified: true,
+       blockSuspended: true,
+       blockDeleted: true,
+     });
   return tryCatch(async () => {
     const { id: idStr } = await ctx.params;
     const id = Number(idStr);
