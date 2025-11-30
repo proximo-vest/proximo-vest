@@ -16,6 +16,7 @@ import {
   ListChecks,
   BarChart3,
 } from "lucide-react";
+import Link from "next/link";
 
 type TeacherList = {
   id: string;
@@ -64,10 +65,12 @@ export function TeacherDashboard({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button className="gap-2">
-            <FileText className="h-4 w-4" />
-            Criar simulado / lista
-            <ArrowRight className="h-4 w-4" />
+          <Button className="gap-2" asChild>
+            <Link href="/dashboard/professor/listas">
+              <FileText className="h-4 w-4" />
+              Criar simulado / lista
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </Button>
         </div>
       </div>
