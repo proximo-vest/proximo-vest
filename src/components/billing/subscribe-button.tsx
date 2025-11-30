@@ -4,7 +4,14 @@ import { useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export function SubscribeButton({ planKey }: { planKey: string }) {
+type BillingInterval = "MONTH" | "YEAR";
+
+type SubscribeButtonProps = {
+  planKey: string;
+  interval?: BillingInterval; // opcional, default MONTH
+};
+
+export function SubscribeButton({ planKey, interval = "MONTH" }: SubscribeButtonProps) {
   const [isLoading, start] = useTransition();
 
   async function checkout() {
@@ -13,7 +20,10 @@ export function SubscribeButton({ planKey }: { planKey: string }) {
         const res = await fetch("/api/billing/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ planKey }),
+          body: JSON.stringify({
+            planKey,
+            interval, // <-- agora vai junto
+          }),
         });
 
         if (!res.ok) {
@@ -34,9 +44,14 @@ export function SubscribeButton({ planKey }: { planKey: string }) {
     });
   }
 
+  const label =
+    interval === "YEAR"
+      ? "Assinar plano anual"
+      : "Assinar plano mensal";
+
   return (
     <Button onClick={checkout} disabled={isLoading}>
-      {isLoading ? "Carregando..." : "Assinar"}
+      {isLoading ? "Carregando..." : label}
     </Button>
   );
 }

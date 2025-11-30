@@ -18,7 +18,11 @@ export async function POST(req: Request) {
   const { session } = auth;
 
   const body = await req.json();
-  const { planKey, couponCode } = body;
+  const { planKey, couponCode, interval } = body as {
+    planKey?: string;
+    couponCode?: string;
+    interval?: "MONTH" | "YEAR" | "month" | "year";
+  };
 
   if (!planKey) {
     return NextResponse.json(
@@ -26,6 +30,10 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
+
+  // Normaliza intervalo (default: MONTH)
+  const billingInterval: "MONTH" | "YEAR" =
+    interval && interval.toUpperCase() === "YEAR" ? "YEAR" : "MONTH";
 
   // Buscar plano
   const plan = await prisma.plan.findUnique({
@@ -36,9 +44,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Plano inválido." }, { status: 404 });
   }
 
-  if (!plan.stripePriceId) {
+  // Escolher o priceId correto conforme o intervalo
+  const stripePriceId =
+    billingInterval === "YEAR" ? plan.stripeYearlyPriceId : plan.stripePriceId;
+
+  if (!stripePriceId) {
     return NextResponse.json(
-      { error: "Este plano não possui stripePriceId configurado." },
+      {
+        error:
+          billingInterval === "YEAR"
+            ? "Este plano não possui stripeYearlyPriceId configurado para anual."
+            : "Este plano não possui stripePriceId configurado para mensal.",
+      },
       { status: 500 }
     );
   }
@@ -59,22 +76,36 @@ export async function POST(req: Request) {
     });
     customerId = customer.id;
 
-    // salvar customerId no banco
+    // salvar customerId (e já deixar planKey + billingInterval coerentes)
     if (sub) {
       await prisma.subscription.update({
         where: { userId: session.user.id },
-        data: { stripeCustomerId: customerId },
+        data: {
+          stripeCustomerId: customerId,
+          planKey: plan.key,
+          billingInterval,
+        },
       });
     } else {
       await prisma.subscription.create({
         data: {
           userId: session.user.id,
           planKey: plan.key,
-          status: "ACTIVE",
+          status: "ACTIVE", // você pode depois ajustar isso via webhook se quiser
+          billingInterval,
           stripeCustomerId: customerId,
         },
       });
     }
+  } else {
+    // Se já tinha subscription e customer, opcionalmente já atualiza o plano/intervalo pretendido
+    await prisma.subscription.update({
+      where: { userId: session.user.id },
+      data: {
+        planKey: plan.key,
+        billingInterval,
+      },
+    });
   }
 
   // Criar checkout session
@@ -83,7 +114,7 @@ export async function POST(req: Request) {
     customer: customerId,
     line_items: [
       {
-        price: plan.stripePriceId,
+        price: stripePriceId,
         quantity: 1,
       },
     ],
@@ -93,11 +124,13 @@ export async function POST(req: Request) {
       metadata: {
         userId: session.user.id,
         planKey: plan.key,
+        billingInterval, // importante pro webhook
       },
     },
     metadata: {
       userId: session.user.id,
       planKey: plan.key,
+      billingInterval,
     },
   };
 
