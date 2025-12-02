@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAPIAuth } from "@/utils/access";
 
+/**
+ * GET /api/plans/available
+ * Lista todos os planos ativos
+ */
 export async function GET() {
   const auth = await requireAPIAuth({
     emailVerified: true,
@@ -12,12 +16,23 @@ export async function GET() {
   if (!auth.ok) return auth.res;
 
   const plans = await prisma.plan.findMany({
-    orderBy: { monthlyPrice: "asc" },
+    where: {
+      isActive: true,
+    },
+    orderBy: {
+      monthlyPrice: "asc", // mantém a ordenação que você já usava
+    },
   });
 
+  // Continua devolvendo o próprio objeto Plan do Prisma
   return NextResponse.json(plans);
 }
 
+/**
+ * POST /api/plans/available
+ * Criação de um novo plano
+ * Agora suporta mensal + anual + stripePriceIds
+ */
 export async function POST(req: Request) {
   const auth = await requireAPIAuth({
     emailVerified: true,
@@ -28,11 +43,35 @@ export async function POST(req: Request) {
   if (!auth.ok) return auth.res;
 
   const body = await req.json();
-  const { key, label, description, type, monthlyPrice, highlight } = body;
 
+  const {
+    key,
+    label,
+    description,
+    type,
+    monthlyPrice,
+    yearlyPrice,          // NOVO
+    highlight,
+    isActive,             // NOVO (opcional)
+    stripePriceId,        // NOVO (mensal)
+    stripeYearlyPriceId,  // NOVO (anual)
+  } = body;
+
+  // validações básicas
   if (!key || !label || !description || !type) {
     return NextResponse.json(
       { error: "Campos obrigatórios faltando" },
+      { status: 400 }
+    );
+  }
+
+  // Se não for plano totalmente grátis, garante que pelo menos um preço exista
+  if (monthlyPrice == null && yearlyPrice == null) {
+    return NextResponse.json(
+      {
+        error:
+          "Defina ao menos um preço (mensal ou anual) ou ajuste a lógica para planos 100% gratuitos.",
+      },
       { status: 400 }
     );
   }
@@ -44,7 +83,12 @@ export async function POST(req: Request) {
       description,
       type,
       monthlyPrice: monthlyPrice ?? null,
+      yearlyPrice: yearlyPrice ?? null,
       highlight: !!highlight,
+      isActive: isActive ?? true,
+      // Stripe IDs opcionais
+      stripePriceId: stripePriceId ?? null,
+      stripeYearlyPriceId: stripeYearlyPriceId ?? null,
     },
   });
 

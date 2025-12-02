@@ -15,7 +15,7 @@ export default async function UserEditAndAccessPage({
   params: { userId: string };
 }) {
   await requirePageAuth({
-    perm: ["user.update", "user.delete", "user.access.update"],
+    //perm: ["user.update", "user.delete", "user.access.update"],
     emailVerified: true,
     blockSuspended: true,
     blockDeleted: true,

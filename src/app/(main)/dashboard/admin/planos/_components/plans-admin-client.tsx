@@ -3,25 +3,36 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+
 type Plan = {
-    id: string;
-    key: string;
-    label: string;
-    description: string;
-    type: string;
-    monthlyPrice: number | null;
-    highlight: boolean;
-    isActive: boolean;
-    stripePriceId: string;
-    createdAt: Date;
-    updatedAt: Date;
-}
+  id: string;
+  key: string;
+  label: string;
+  description: string;
+  type: string;
+  monthlyPrice: number | null;
+  yearlyPrice: number | null;          // NOVO
+  highlight: boolean;
+  isActive: boolean;
+  stripePriceId: string | null;        // mensal
+  stripeYearlyPriceId: string | null;  // NOVO: anual
+  createdAt: string;
+  updatedAt: string;
+};
+
 type Props = {
   initialPlans: Plan[];
 };
@@ -35,7 +46,9 @@ export function PlansAdminClient({ initialPlans }: Props) {
     description: "",
     type: "student",
     monthlyPrice: "",
+    yearlyPrice: "", // NOVO
     stripePriceId: "",
+    stripeYearlyPriceId: "", // NOVO
     highlight: false,
   });
 
@@ -61,10 +74,19 @@ export function PlansAdminClient({ initialPlans }: Props) {
           key: form.key.trim(),
           label: form.label.trim(),
           description: form.description.trim(),
-          stripePriceId: form.stripePriceId.trim(),
           type: form.type,
           monthlyPrice:
             form.monthlyPrice === "" ? null : Number(form.monthlyPrice),
+          yearlyPrice:
+            form.yearlyPrice === "" ? null : Number(form.yearlyPrice),
+          stripePriceId:
+            form.stripePriceId.trim() === ""
+              ? null
+              : form.stripePriceId.trim(),
+          stripeYearlyPriceId:
+            form.stripeYearlyPriceId.trim() === ""
+              ? null
+              : form.stripeYearlyPriceId.trim(),
           highlight: form.highlight,
         }),
       });
@@ -80,8 +102,10 @@ export function PlansAdminClient({ initialPlans }: Props) {
         label: "",
         description: "",
         type: "student",
-        stripePriceId: "",
         monthlyPrice: "",
+        yearlyPrice: "",
+        stripePriceId: "",
+        stripeYearlyPriceId: "",
         highlight: false,
       });
       await refreshPlans();
@@ -114,9 +138,12 @@ export function PlansAdminClient({ initialPlans }: Props) {
   return (
     <div className="space-y-8">
       <section>
-        <h1 className="text-2xl font-bold tracking-tight">Planos da Plataforma</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Planos da Plataforma
+        </h1>
         <p className="text-muted-foreground">
-          Gerencie os planos de assinatura disponíveis para alunos, professores e escolas.
+          Gerencie os planos de assinatura disponíveis para alunos, professores
+          e escolas.
         </p>
       </section>
 
@@ -126,7 +153,9 @@ export function PlansAdminClient({ initialPlans }: Props) {
           <CardHeader>
             <CardTitle>Criar novo plano</CardTitle>
             <CardDescription>
-              Defina um identificador interno (key), nome, tipo e preço. Use key em caixa alta, ex: <code>STUDENT_PREMIUM</code>.
+              Defina um identificador interno (key), nome, tipo e preços.
+              Use key em caixa alta, ex:{" "}
+              <code>STUDENT_START</code>, <code>TEACHER_EDU</code>.
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleCreate}>
@@ -135,9 +164,14 @@ export function PlansAdminClient({ initialPlans }: Props) {
                 <Label htmlFor="key">Key interna</Label>
                 <Input
                   id="key"
-                  placeholder="STUDENT_PREMIUM"
+                  placeholder="STUDENT_START"
                   value={form.key}
-                  onChange={(e) => setForm((f) => ({ ...f, key: e.target.value.toUpperCase() }))}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      key: e.target.value.toUpperCase(),
+                    }))
+                  }
                   required
                 />
               </div>
@@ -145,59 +179,104 @@ export function PlansAdminClient({ initialPlans }: Props) {
                 <Label htmlFor="label">Label (título do plano)</Label>
                 <Input
                   id="label"
-                  placeholder="Plano Premium (Aluno)"
+                  placeholder="Plano Start (Aluno)"
                   value={form.label}
-                  onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, label: e.target.value }))
+                  }
                   required
                 />
               </div>
+
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="description">Descrição</Label>
                 <Textarea
                   id="description"
                   placeholder="Descrição breve dos benefícios do plano."
                   value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, description: e.target.value }))
+                  }
                   required
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="type">Tipo</Label>
                 <select
                   id="type"
                   className="border rounded-md px-2 py-1 text-sm bg-background"
                   value={form.type}
-                  onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, type: e.target.value }))
+                  }
                 >
                   <option value="student">Aluno</option>
                   <option value="teacher">Professor</option>
                   <option value="school">Escola</option>
                 </select>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="monthlyPrice">Preço mensal (R$)</Label>
                 <Input
                   id="monthlyPrice"
                   type="number"
                   step="0.01"
-                  placeholder="Deixe vazio para plano gratuito"
+                  placeholder="Deixe vazio para não ter plano mensal"
                   value={form.monthlyPrice}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, monthlyPrice: e.target.value }))
                   }
                 />
               </div>
-               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="stripePriceId">Descrição</Label>
-                <Textarea
-                  id="stripePriceId"
-                  placeholder="Descrição breve dos benefícios do plano."
-                  value={form.stripePriceId}
-                  onChange={(e) => setForm((f) => ({ ...f, stripePriceId: e.target.value }))}
-                  required
+
+              <div className="space-y-2">
+                <Label htmlFor="yearlyPrice">Preço anual (R$)</Label>
+                <Input
+                  id="yearlyPrice"
+                  type="number"
+                  step="0.01"
+                  placeholder="Deixe vazio para não ter plano anual"
+                  value={form.yearlyPrice}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, yearlyPrice: e.target.value }))
+                  }
                 />
               </div>
-              <div className="flex items-center gap-2">
+
+              <div className="space-y-2">
+                <Label htmlFor="stripePriceId">
+                  Stripe Price ID (mensal)
+                </Label>
+                <Input
+                  id="stripePriceId"
+                  placeholder="price_xxx (mensal)"
+                  value={form.stripePriceId}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, stripePriceId: e.target.value }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="stripeYearlyPriceId">
+                  Stripe Price ID (anual)
+                </Label>
+                <Input
+                  id="stripeYearlyPriceId"
+                  placeholder="price_xxx (anual)"
+                  value={form.stripeYearlyPriceId}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      stripeYearlyPriceId: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="flex items-center gap-2 md:col-span-2">
                 <Switch
                   id="highlight"
                   checked={form.highlight}
@@ -244,11 +323,32 @@ export function PlansAdminClient({ initialPlans }: Props) {
                 <p className="text-sm text-muted-foreground">
                   {plan.description}
                 </p>
-                <p className="text-lg font-semibold">
-                  {plan.monthlyPrice === null
-                    ? "Gratuito"
-                    : `R$ ${plan.monthlyPrice.toFixed(2)}/mês`}
-                </p>
+
+                <div className="space-y-1">
+                  {plan.monthlyPrice === null &&
+                  plan.yearlyPrice === null ? (
+                    <p className="text-lg font-semibold">Gratuito</p>
+                  ) : (
+                    <>
+                      {plan.monthlyPrice !== null && (
+                        <p className="text-sm">
+                          Mensal:{" "}
+                          <span className="font-semibold">
+                            R$ {plan.monthlyPrice.toFixed(2)}/mês
+                          </span>
+                        </p>
+                      )}
+                      {plan.yearlyPrice !== null && (
+                        <p className="text-sm">
+                          Anual:{" "}
+                          <span className="font-semibold">
+                            R$ {plan.yearlyPrice.toFixed(2)}/ano
+                          </span>
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
               </CardContent>
               <CardFooter className="flex items-center justify-between">
                 <Button
@@ -258,7 +358,7 @@ export function PlansAdminClient({ initialPlans }: Props) {
                 >
                   {plan.isActive ? "Desativar" : "Ativar"}
                 </Button>
-                {/* Aqui depois dá pra abrir um modal de edição completa */}
+                {/* depois dá pra colocar botão de editar */}
               </CardFooter>
             </Card>
           ))}

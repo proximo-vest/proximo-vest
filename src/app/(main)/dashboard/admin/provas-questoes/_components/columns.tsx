@@ -98,7 +98,7 @@ export const dashboardColumns: ColumnDef<z.infer<typeof sectionSchema>>[] = [
 
       return (
         <div className="flex justify-end items-center gap-2 pr-4">
-          <Link href={`/dashboard/provas-questoes/${item.slug}`}>
+          <Link href={`/dashboard/admin/provas-questoes/${item.slug}`}>
             <Button variant="outline" size="sm">
               Ver
             </Button>

@@ -41,19 +41,16 @@ type Section = z.infer<typeof sectionSchema>;
 type DataTableProps = {
   data: Section[];
 };
-import { useCan } from "@/hooks/use-can";
-export function DataTable({ data }: DataTableProps) {
-  const canCreate = useCan({
-    perm: "examBoard.manage",
-  });
 
+export function DataTable({ data }: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
+  const [rowSelection, setRowSelection] =
+    React.useState<RowSelectionState>({});
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -98,17 +95,19 @@ export function DataTable({ data }: DataTableProps) {
       className="w-full flex-col justify-start gap-6"
     >
       <div className="flex items-center justify-between">
-        {canCreate && (
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <a href="/dashboard/admin/provas-questoes/createBoard">
-                <Plus className="mr-1 h-4 w-4" />
-                <span className="hidden lg:inline">Criar Prova</span>
-              </a>
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <a href="/dashboard/provas-questoes/createBoard">
+              <Plus className="mr-1 h-4 w-4" />
+              <span className="hidden lg:inline">Criar Prova</span>
+            </a>
+          </Button>
+        </div>
+
+        {/* Se quiser depois, aqui dá pra recolocar DataTableViewOptions com table */}
+        {/* <DataTableViewOptions table={table} /> */}
       </div>
+
       <TabsContent
         value="outline"
         className="relative flex flex-col gap-4 overflow-auto"

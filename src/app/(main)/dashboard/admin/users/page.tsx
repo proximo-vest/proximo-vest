@@ -7,7 +7,7 @@ import { requirePageAuth } from "@/utils/access";
 
 export default async function Page() {
   await requirePageAuth({
-    perm: "user.read",          // OU perm: "exam.read"
+    //perm: "user.read",          // OU perm: "exam.read"
     emailVerified: true,
     blockSuspended: true,
     blockDeleted: true,
