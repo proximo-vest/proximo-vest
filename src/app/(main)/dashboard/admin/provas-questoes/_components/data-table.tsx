@@ -101,7 +101,7 @@ export function DataTable({ data }: DataTableProps) {
         {canCreate && (
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" asChild>
-              <a href="/dashboard/provas-questoes/createBoard">
+              <a href="/dashboard/admin/provas-questoes/createBoard">
                 <Plus className="mr-1 h-4 w-4" />
                 <span className="hidden lg:inline">Criar Prova</span>
               </a>

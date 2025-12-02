@@ -1,6 +1,7 @@
 import { requirePageAuth } from "@/utils/access";
 import { isActiveSubscription } from "@/server/subscription";
 import type { Plan } from "@/generated/prisma";
+import { SubscribeButton } from "@/components/billing/subscribe-button";
 import { ManageSubscriptionButton } from "@/components/billing/manage-subscription-button";
 import {
   Card,
@@ -11,9 +12,6 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-// 👇 importa o client component novo
-import { PlansGridClient } from "./_components/plans-grid-client";
 
 export default async function AssinaturaPage() {
   const { session, subscription, limits } = await requirePageAuth({
@@ -27,6 +25,7 @@ export default async function AssinaturaPage() {
   const currentPlanType = subscription?.plan?.type ?? "student";
   const billingInterval = (subscription as any)?.billingInterval ?? "MONTH";
 
+  // Busca planos via API (sem Prisma direto na página)
   const res = await fetch(`${process.env.API_URL}/plans/available`, {
     cache: "no-store",
   });
@@ -41,14 +40,13 @@ export default async function AssinaturaPage() {
     ? plans.find((p) => p.key === currentPlanKey) ?? null
     : null;
 
+  // Calcula preço do plano atual conforme o intervalo
   const currentPrice =
     billingInterval === "YEAR"
       ? currentPlanConfig?.yearlyPrice ?? currentPlanConfig?.monthlyPrice ?? null
       : currentPlanConfig?.monthlyPrice ?? currentPlanConfig?.yearlyPrice ?? null;
 
   const currentPriceSuffix = billingInterval === "YEAR" ? "/ano" : "/mês";
-
-
 
   return (
     <div className="space-y-8">
@@ -79,6 +77,7 @@ export default async function AssinaturaPage() {
                     {currentPlanConfig?.label ?? "Plano desconhecido"}
                   </span>
 
+                  {/* Status */}
                   {subscription.status === "ACTIVE" && (
                     <Badge variant="outline">Ativo</Badge>
                   )}
@@ -94,11 +93,13 @@ export default async function AssinaturaPage() {
                     <Badge variant="destructive">Expirado</Badge>
                   )}
 
+                  {/* Intervalo de cobrança */}
                   <Badge variant="outline">
                     {billingInterval === "YEAR" ? "Plano anual" : "Plano mensal"}
                   </Badge>
                 </div>
 
+                {/* Valor do plano atual */}
                 {currentPlanConfig &&
                 currentPlanConfig.monthlyPrice === null &&
                 currentPlanConfig.yearlyPrice === null ? (
@@ -122,6 +123,7 @@ export default async function AssinaturaPage() {
                   </p>
                 )}
 
+                {/* mensagem de validade */}
                 {subscription.status === "CANCEL_AT_PERIOD_END" &&
                   subscription.expiresAt && (
                     <p className="text-xs text-muted-foreground">
@@ -145,6 +147,7 @@ export default async function AssinaturaPage() {
                     </p>
                   )}
 
+                {/* limites do plano */}
                 {limits && (
                   <p className="text-xs text-muted-foreground">
                     Limites deste plano:{" "}
@@ -176,6 +179,7 @@ export default async function AssinaturaPage() {
                   </p>
                 )}
 
+                {/* botão portal Stripe se ainda tiver acesso */}
                 {subscriptionActive && (
                   <div className="pt-2">
                     <ManageSubscriptionButton>
@@ -185,25 +189,90 @@ export default async function AssinaturaPage() {
                 )}
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                Você ainda não possui uma assinatura ativa. Atualmente, está
-                no plano padrão gratuito ou sem plano vinculado.
-              </p>
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Você ainda não possui uma assinatura ativa. Atualmente, está
+                  no plano padrão gratuito ou sem plano vinculado.
+                </p>
+              </>
             )}
           </CardContent>
         </Card>
       </section>
 
-      {/* Lista de planos disponíveis + TOGGLE mensal/anual */}
+      {/* Lista de planos disponíveis */}
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Escolha um plano</h2>
 
-        {/* 👇 aqui entra o client component com o toggle + SubscribeButton */}
-        <PlansGridClient
-          plans={plans}
-          currentPlanKey={currentPlanKey}
-            userType={currentPlanType as "student" | "teacher" | "school"}
-        />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {plans.map((plan) => {
+            const isCurrent = plan.key === currentPlanKey;
+            const isFree =
+              plan.monthlyPrice === null && plan.yearlyPrice === null;
+
+            return (
+              <Card
+                key={plan.id}
+                className={plan.highlight ? "border-primary shadow-sm" : ""}
+              >
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="text-base">{plan.label}</CardTitle>
+                    {plan.highlight && <Badge>Recomendado</Badge>}
+                  </div>
+                  <CardDescription>{plan.description}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {isFree ? (
+                      "Gratuito"
+                    ) : plan.monthlyPrice != null ? (
+                      <>
+                        R$ {plan.monthlyPrice.toFixed(2)}{" "}
+                        <span className="text-sm font-normal text-muted-foreground">
+                          /mês
+                        </span>
+                      </>
+                    ) : plan.yearlyPrice != null ? (
+                      <>
+                        R$ {plan.yearlyPrice.toFixed(2)}{" "}
+                        <span className="text-sm font-normal text-muted-foreground">
+                          /ano
+                        </span>
+                      </>
+                    ) : (
+                      "-"
+                    )}
+                  </div>
+
+                  {plan.yearlyPrice != null && plan.monthlyPrice != null && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Também disponível no plano anual por R${" "}
+                      {plan.yearlyPrice.toFixed(2)}/ano.
+                    </p>
+                  )}
+
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Tipo:{" "}
+                    {plan.type === "student"
+                      ? "Aluno"
+                      : plan.type === "teacher"
+                      ? "Professor"
+                      : "Escola"}
+                  </p>
+                </CardContent>
+                <CardFooter className="flex justify-between items-center">
+                  {isCurrent ? (
+                    <Badge variant="outline">Plano atual</Badge>
+                  ) : (
+                    // por enquanto ainda só mensal — depois dá pra passar o intervalo aqui
+                    <SubscribeButton planKey={plan.key} />
+                  )}
+                </CardFooter>
+              </Card>
+            );
+          })}
+        </div>
       </section>
     </div>
   );

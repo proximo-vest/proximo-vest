@@ -101,7 +101,7 @@ const columns = React.useMemo<ColumnDef<Question, unknown>[]>(
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
             <a
-              href={`/dashboard/adminprovas-questoes/${slug}/${id}/${idPhase}/createQuestion`}
+              href={`/dashboard/admin/provas-questoes/${slug}/${id}/${idPhase}/createQuestion`}
             >
               <Plus className="mr-1 h-4 w-4" />
               <span className="hidden lg:inline">Criar Questões</span>

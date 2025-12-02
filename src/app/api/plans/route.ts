@@ -86,7 +86,6 @@ export async function POST(req: Request) {
       yearlyPrice: yearlyPrice ?? null,
       highlight: !!highlight,
       isActive: isActive ?? true,
-
       // Stripe IDs opcionais
       stripePriceId: stripePriceId ?? null,
       stripeYearlyPriceId: stripeYearlyPriceId ?? null,
