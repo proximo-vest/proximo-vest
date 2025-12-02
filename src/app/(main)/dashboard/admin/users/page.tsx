@@ -13,7 +13,7 @@ export default async function Page() {
     onForbiddenRedirect: "/dashboard", // opcional
   });
 
-  const res = await fetch(`${process.env.API_URL}/users/list`, {
+  const res = await fetch(`https://dev.proximovest.com.br/users/list`, {
     cache: "no-store",
   });
 
