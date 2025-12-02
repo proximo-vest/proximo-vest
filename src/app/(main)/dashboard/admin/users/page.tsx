@@ -14,10 +14,11 @@ export default async function Page() {
     onForbiddenRedirect: "/dashboard", // opcional
   });
 
-  const res = await fetch(`/api/users/list`, {
+  const res = await fetch(`${process.env.API_URL}/users/list`, {
   });
 
   if (!res.ok) throw new Error('Falha ao buscar boards');
+  console.log(res)
 
   const boards = await res.json();
   const boardNumber = boards.length as number;
