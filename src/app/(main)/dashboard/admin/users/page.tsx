@@ -17,8 +17,12 @@ export default async function Page() {
     cache: "no-store",
   });
 
-  if (!res.ok) throw new Error("Falha ao buscar boards");
-  console.log(res);
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("ERRO /api/users/list:", res.status, text);
+    // em vez de estourar um erro genérico, mostra algo mais amigável
+    throw new Error(`Falha ao buscar usuários: ${res.status}`);
+  }
 
   const boards = await res.json();
   const boardNumber = boards.length as number;
