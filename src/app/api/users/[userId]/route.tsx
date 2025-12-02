@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAPIAuth } from "@/utils/access";
 import { z } from "zod";
 
+
 // Ajusta os valores do enum conforme seu modelo Prisma
 const UpdateUserSchema = z.object({
   name: z.string().min(1, "Nome obrigatório"),
@@ -19,7 +20,7 @@ export async function PUT(
 ) {
   // Garante que só quem pode mexer chega aqui (ajusta conforme seu helper)
   await requireAPIAuth({
-    role: "Admin",
+    perm: "user.update",
     emailVerified: true,
     blockSuspended: true,
     blockDeleted: true,

@@ -11,8 +11,11 @@ type RouteContext = {
   params: Promise<{ userId: string }>;
 };
 
+import { requireAPIAuth } from "@/utils/access";
+
 // -------- GET: retorna permissões que o usuário tem diretamente + lista completa --------
 export async function GET(req: NextRequest, context: RouteContext) {
+  await requireAPIAuth({ perm: "user.read", emailVerified: true, blockSuspended: true, blockDeleted: true });
   try {
     const { userId } = await context.params;
 
@@ -62,6 +65,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
 // -------- PUT: atualiza overrides diretos (UserPermission) --------
 export async function PUT(req: NextRequest, context: RouteContext) {
+  await requireAPIAuth({ perm: "user.access.update", emailVerified: true, blockSuspended: true, blockDeleted: true });
   try {
     const { userId } = await context.params;
 

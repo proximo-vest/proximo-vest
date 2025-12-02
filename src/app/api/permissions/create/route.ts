@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { requireAPIAuth } from "@/utils/access";
 
 const permissionCreateSchema = z.object({
   resource: z.string().min(1, "Resource obrigatório"), // ex: "exam"
@@ -10,6 +11,7 @@ const permissionCreateSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  await requireAPIAuth({ perm: "perm.manage", emailVerified: true, blockSuspended: true, blockDeleted: true });
   try {
     const body = await req.json();
     const values = permissionCreateSchema.parse(body);

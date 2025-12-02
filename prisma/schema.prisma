@@ -191,8 +191,9 @@ model Question {
   skills   QuestionSkill[]
 
   // tipo (1–1 exclusivo)
-  mcq McqItem?
-  fr  FrItem?
+  mcq                  McqItem?
+  fr                   FrItem?
+  teacherListQuestions TeacherListQuestion[]
 
   // numeração única dentro da fase
   @@unique([examPhaseId, numberLabel])
@@ -296,8 +297,9 @@ model User {
   roles         UserRole[]
   subscription  Subscription?
 
-  directPerms UserPermission[]
-  status      String           @default("active") // "active", "suspended", "deleted"
+  directPerms  UserPermission[]
+  status       String           @default("active") // "active", "suspended", "deleted"
+  teacherLists TeacherList[]
 
   @@unique([email])
   @@map("user")
@@ -425,21 +427,36 @@ model Coupon {
   updatedAt     DateTime     @updatedAt
 }
 
+enum BillingInterval {
+  MONTH
+  YEAR
+}
+
 model Plan {
-  id            String   @id @default(cuid())
-  key           String   @unique // ex: "STUDENT_PREMIUM"
-  label         String // ex: "Plano Premium (Aluno)"
-  description   String
-  type          String // "student" | "teacher" | "school"
-  monthlyPrice  Float? // null = grátis
-  highlight     Boolean  @default(false)
-  isActive      Boolean  @default(true)
-  stripePriceId String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id          String   @id @default(cuid())
+  key         String   @unique // ex: "STUDENT_START"
+  label       String   // ex: "Plano Start (Aluno)"
+  description String
+  type        String   // "student" | "teacher" | "school"
+
+  // PREÇOS
+  monthlyPrice Float? // null = grátis ou só anual
+  yearlyPrice  Float? // null = se não tiver anual
+
+  // STRIPE
+  stripePriceId       String? // LEGADO: usa como preço mensal
+  stripeYearlyPriceId String? // NOVO: priceId anual
+
+  highlight Boolean  @default(false)
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   subscriptions Subscription[]
 }
+
+
 
 model Subscription {
   id      String @id @default(cuid())
@@ -450,6 +467,9 @@ model Subscription {
   status    String // "ACTIVE" | "EXPIRED" | "CANCELED"
   expiresAt DateTime?
 
+  // NOVO: intervalo da assinatura
+  billingInterval BillingInterval @default(MONTH)
+
   stripeCustomerId     String?
   stripeSubscriptionId String?
 
@@ -457,4 +477,40 @@ model Subscription {
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id])
+}
+
+// ========== Listas de Professor ==========
+
+model TeacherList {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  /// Dono da lista (professor)
+  teacherId   String
+  teacherName String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  teacher   User                  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  questions TeacherListQuestion[]
+
+  @@index([teacherId])
+}
+
+model TeacherListQuestion {
+  id         String @id @default(cuid())
+  listId     String
+  questionId Int
+  order      Int // posição da questão dentro da lista
+
+  /// Relations
+  list     TeacherList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  question Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, questionId]) // mesma questão não entra duas vezes na mesma lista
+  @@index([listId])
+  @@index([questionId])
 }

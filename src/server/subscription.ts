@@ -1,8 +1,15 @@
 import { prisma } from "@/lib/prisma";
-import {Plan, Subscription} from "../generated/prisma";
+import { Plan, Subscription } from "../generated/prisma";
 
 // Status como string union (banco guarda string)
-export type SubscriptionStatus = "ACTIVE" | "EXPIRED" | "CANCELED" | "CANCEL_AT_PERIOD_END";
+export type SubscriptionStatus =
+  | "ACTIVE"
+  | "EXPIRED"
+  | "CANCELED"
+  | "CANCEL_AT_PERIOD_END";
+
+// Mesmos valores do enum BillingInterval no Prisma
+export type BillingInterval = "MONTH" | "YEAR";
 
 export type SubscriptionWithPlan = Subscription & {
   plan: Plan;
@@ -69,6 +76,7 @@ type UpsertSubscriptionInput = {
   planKey: string;
   status: SubscriptionStatus;
   expiresAt?: Date | null;
+  billingInterval?: BillingInterval; // NOVO
   stripeCustomerId?: string | null;
   stripeSubscriptionId?: string | null;
 };
@@ -80,9 +88,13 @@ export async function upsertSubscription(input: UpsertSubscriptionInput) {
     where: { userId },
     create: {
       userId,
+      // se não vier nada, default MONTH (mesmo do Prisma)
+      billingInterval: data.billingInterval ?? "MONTH",
       ...data,
     },
     update: {
+      // não força billingInterval se não vier no update
+      ...(data.billingInterval ? { billingInterval: data.billingInterval } : {}),
       ...data,
     },
   });
@@ -109,7 +121,8 @@ export async function cancelSubscriptionLocal(userId: string) {
 export async function giveFreePlan(
   userId: string,
   planKey: string,
-  days: number
+  days: number,
+  billingInterval: BillingInterval = "MONTH" // NOVO: default MONTH
 ) {
   const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
@@ -120,27 +133,74 @@ export async function giveFreePlan(
     expiresAt,
     stripeCustomerId: null,
     stripeSubscriptionId: null,
+    billingInterval,
   });
 }
 
 // --------------------------------------
-// PLAN LIMITS (EX: REDAÇÕES POR MÊS)
-// --------------------------------------
+// PLAN LIMITS (EX: REDAÇÕES / LISTAS POR MÊS)
 // Use a chave do plano (plan.key)
 // --------------------------------------
 
-export function getPlanLimits(planKey?: string | null) {
+export type PlanLimits = {
+  // aluno
+  essayCreditsPerMonth: number;
+  // professor
+  listLimitPerMonth: number | null; // null = ilimitado
+  unlimitedLists: boolean;
+  // se quiser manter algo futuro
+  unlimitedQuestions: boolean;
+};
+
+export function getPlanLimits(planKey?: string | null): PlanLimits {
   switch (planKey) {
-    case "STUDENT_PREMIUM":
-      return { essayCredits: 3, unlimitedQuestions: true };
+    // ----------------------
+    // ALUNO
+    // ----------------------
+    case "STUDENT_START":
+      return {
+        essayCreditsPerMonth: 1,
+        listLimitPerMonth: 0,
+        unlimitedLists: false,
+        unlimitedQuestions: true,
+      };
 
-    case "STUDENT_ELITE":
-      return { essayCredits: 20, unlimitedQuestions: true };
+    case "STUDENT_PRO":
+      return {
+        essayCreditsPerMonth: 4,
+        listLimitPerMonth: 0,
+        unlimitedLists: false,
+        unlimitedQuestions: true,
+      };
 
-    case "TEACHER_PREMIUM":
-      return { essayCredits: 50, unlimitedQuestions: true };
+    // ----------------------
+    // PROFESSOR
+    // ----------------------
+    case "TEACHER_EDU":
+      return {
+        essayCreditsPerMonth: 0,
+        listLimitPerMonth: 5, // 5 listas/simulados por mês
+        unlimitedLists: false,
+        unlimitedQuestions: true,
+      };
 
+    case "TEACHER_EDU_PRO":
+      return {
+        essayCreditsPerMonth: 0,
+        listLimitPerMonth: null, // ilimitado
+        unlimitedLists: true,
+        unlimitedQuestions: true,
+      };
+
+    // ----------------------
+    // DEFAULT / SEM PLANO
+    // ----------------------
     default:
-      return { essayCredits: 0, unlimitedQuestions: false };
+      return {
+        essayCreditsPerMonth: 0,
+        listLimitPerMonth: 0,
+        unlimitedLists: false,
+        unlimitedQuestions: false,
+      };
   }
 }

@@ -45,10 +45,10 @@ export default async function Layout({
       avatar:
         (session.user.image as string) ||
         `https://ui-avatars.com/api/?background=black&color=fffff&name=${session.user.name}&size=128`,
-      role: profile.roles[0] || "",
+      role: profile.roles,
     },
   ];
-
+  console.log(user)
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
 
@@ -91,6 +91,7 @@ export default async function Layout({
         <AppSidebar
           variant={sidebarVariant}
           collapsible={sidebarCollapsible}
+          profile={profile}
         />
         <SidebarInset
           data-content-layout={contentLayout}
