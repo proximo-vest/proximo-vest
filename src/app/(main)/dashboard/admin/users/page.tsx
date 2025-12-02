@@ -4,7 +4,6 @@ import data from "./_components/data.json";
 import { SectionCards } from "./_components/section-cards";
 import { requirePageAuth } from "@/utils/access";
 
-
 export default async function Page() {
   await requirePageAuth({
     //perm: "user.read",          // OU perm: "exam.read"
@@ -15,10 +14,11 @@ export default async function Page() {
   });
 
   const res = await fetch(`${process.env.API_URL}/users/list`, {
+    cache: "no-store",
   });
 
-  if (!res.ok) throw new Error('Falha ao buscar boards');
-  console.log(res)
+  if (!res.ok) throw new Error("Falha ao buscar boards");
+  console.log(res);
 
   const boards = await res.json();
   const boardNumber = boards.length as number;
